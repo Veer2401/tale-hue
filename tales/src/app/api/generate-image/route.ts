@@ -1,25 +1,44 @@
 import { NextRequest, NextResponse } from "next/server";
-// Using direct REST call to force v1 endpoint
+// Prefer SDK (@google/genai) and fall back to REST + procedural SVG
+import { GoogleGenAI } from "@google/genai";
+import { Resvg } from "@resvg/resvg-js";
 
-const GEMINI_API_KEY = "AIzaSyDk36jLh9LcAUNuTVEuKtcdB_o5p4ybEDc";
+const GEMINI_API_KEY = "AQ.Ab8RN6JzU3ZMV_KAY2ThfUJZcf5-ISt_7wN0P4qWHnjIt3RlPQ";
 
 export async function POST(req: NextRequest) {
+  let lower = "";
+  let promptStr = "";
   try {
     const { prompt } = await req.json();
     if (!prompt || typeof prompt !== "string") {
       return NextResponse.json({ error: "Invalid prompt" }, { status: 400 });
     }
+    promptStr = prompt;
+    lower = prompt.toLowerCase();
 
     const clamped = prompt.slice(0, 150);
-    const guide = `You are an SVG designer. Output ONLY an SVG (no markdown fences). Create a cinematic poster 1024x1024 in pure SVG based on: "${clamped}".
-Design rules:
-- Layered background gradient (dark, moody)
-- 3–6 geometric shapes (mix of paths/rects/circles/lines) arranged to evoke the scene
-- Use neon accents (#7c3aed, #22d3ee) sparingly for highlights
-- Add subtle grain/noise using filters
-- Include a faint caption at bottom with no more than 5 words extracted from the idea
-- No external images, no <image> tags
-- Return ONLY raw <svg>...</svg>`;
+    const guide = `You are an SVG illustrator. Output ONLY raw <svg>...</svg> (no markdown fences). Create a detailed square poster (1024x1024) for: "${clamped}".
+Must include:
+- Recognizable themed elements (avoid purely abstract)
+- Layered gradient background, subtle glow/grain filters
+- Accents using #7c3aed and #22d3ee
+- Short caption (<=5 words) at bottom
+- No external images or <image> tags`;
+    // 1) Try the new SDK first (gemini-2.5-flash)
+    let raw: string = "";
+    try {
+      const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+      const sdkRes = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: guide,
+      } as any);
+      const outText: string = (sdkRes as any)?.text || (sdkRes as any)?.output_text || "";
+      if (outText) {
+        raw = outText.trim();
+      }
+    } catch {}
+
+    // 2) If no result, try v1 REST models cascade
     const modelCandidates = [
       "gemini-1.5-flash-latest",
       "gemini-1.5-flash",
@@ -28,7 +47,6 @@ Design rules:
       "gemini-1.5-pro-latest",
       "gemini-1.5-pro",
     ];
-    let raw = "";
     for (const modelName of modelCandidates) {
       try {
         const resp = await fetch(`https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`, {
@@ -40,7 +58,7 @@ Design rules:
           continue;
         }
         const data: any = await resp.json();
-        raw = (data?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
+        raw = raw || (data?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
         if (raw) break;
       } catch {}
     }
@@ -49,24 +67,24 @@ Design rules:
     const svg = match ? match[0] : undefined;
     const safeFallback = (text: string) => proceduralSVG(text);
 
-    // If Gemini returns overly simple SVG (e.g., just a single circle), use procedural fallback
+    // If Gemini returns overly simple SVG (e.g., just a single circle), use themed or procedural fallback
     const tooSimple = svg && /<circle[\s\S]*?<\/svg>$/i.test(svg) && (svg.match(/<circle/gi)?.length || 0) <= 1 && (svg.match(/<rect|<path|<line|<polygon/gi)?.length || 0) === 0;
-    const body = !svg || tooSimple ? safeFallback(prompt.slice(0, 60)) : svg;
-    return new NextResponse(body, {
+    const themed = lower.includes("diwali") || lower.includes("deepavali") ? diwaliSVG(prompt) : undefined;
+    const finalSvg = !svg || tooSimple ? (themed || safeFallback(prompt.slice(0, 60))) : svg;
+    const png = rasterize(finalSvg);
+    return new NextResponse(png as any, {
       status: 200,
       headers: {
-        "Content-Type": "image/svg+xml",
+        "Content-Type": "image/png",
         "Cache-Control": "no-store",
       },
     });
   } catch (err: any) {
     // As a last resort, return a generated fallback SVG instead of 500 to avoid UI error
     const msg = typeof err?.message === "string" ? err.message : "";
-    const body = proceduralSVG(msg || "Tale Hue");
-    return new NextResponse(body, {
-      status: 200,
-      headers: { "Content-Type": "image/svg+xml", "Cache-Control": "no-store" },
-    });
+    const svg = (lower.includes("diwali") || lower.includes("deepavali")) ? diwaliSVG(promptStr) : proceduralSVG(msg || "Tale Hue");
+    const png = rasterize(svg);
+    return new NextResponse(png as any, { status: 200, headers: { "Content-Type": "image/png", "Cache-Control": "no-store" } });
   }
 }
 
@@ -102,6 +120,57 @@ function proceduralSVG(text: string): string {
   ${shapes}
   <text x="50%" y="960" text-anchor="middle" fill="#e7e7ea" font-family="system-ui, -apple-system, sans-serif" font-size="32" opacity="0.85">${escapeXml(caption)}</text>
 </svg>`;
+}
+
+// Handcrafted Diwali-themed SVG with diyas, rangoli, and fireworks accents
+function diwaliSVG(text: string): string {
+  const title = escapeXml(text.split(/\s+/).slice(0, 3).join(" "));
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <radialGradient id="night" cx="50%" cy="40%" r="70%">
+      <stop offset="0%" stop-color="#121221"/>
+      <stop offset="100%" stop-color="#0b0b0f"/>
+    </radialGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#night)"/>
+  <!-- Rangoli -->
+  <g transform="translate(512,620)">
+    <circle r="130" fill="none" stroke="#22d3ee" stroke-width="2" opacity="0.6" />
+    <circle r="90" fill="none" stroke="#7c3aed" stroke-width="2" opacity="0.6" />
+    <g fill="none" stroke="#a78bfa" opacity="0.8">
+      ${Array.from({length:12}).map((_,i)=>`<path d="M0,-90 C20,-70 20,-40 0,-20 C-20,-40 -20,-70 0,-90" transform="rotate(${i*30})"/>`).join('')}
+    </g>
+  </g>
+  <!-- Diyas -->
+  ${[360, 512, 664].map((x,i)=>`
+    <g transform="translate(${x},760)">
+      <ellipse rx="70" ry="26" fill="#2b2b3a" />
+      <path d="M -70 0 Q 0 -40 70 0 Q 0 40 -70 0 Z" fill="#3b3b4f" />
+      <g filter="url(#glow)">
+        <path d="M0 -18 C 8 -30 16 -42 0 -60 C -16 -42 -8 -30 0 -18" fill="#ffcc66"/>
+        <circle cx="0" cy="-24" r="6" fill="#ffeeaa"/>
+      </g>
+    </g>
+  `).join('')}
+  <!-- Fireworks -->
+  ${[ [180,220],[820,180],[700,320] ].map(([x,y])=>`
+    <g transform="translate(${x},${y})" stroke="#22d3ee" stroke-width="2" opacity="0.9" filter="url(#glow)">
+      ${Array.from({length:10}).map((_,i)=>`<line x1="0" y1="0" x2="0" y2="-40" transform="rotate(${i*36})"/>`).join('')}
+    </g>
+  `).join('')}
+  <text x="50%" y="940" text-anchor="middle" fill="#e7e7ea" font-family="system-ui, -apple-system, sans-serif" font-size="34" opacity="0.95">${title}</text>
+</svg>`;
+}
+
+function rasterize(svg: string): Uint8Array {
+  const r = new Resvg(svg, { fitTo: { mode: "width", value: 1024 } });
+  const img = r.render();
+  return img.asPng();
 }
 
 function generateShapes(rand: () => number, a1: string, a2: string, count: number): string {
