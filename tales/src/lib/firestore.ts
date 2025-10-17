@@ -15,6 +15,7 @@ import {
   where,
   orderBy,
   limit,
+  deleteDoc,
 } from "firebase/firestore";
 
 export type UserDoc = {
@@ -92,7 +93,7 @@ export async function unlikeStory(storyID: string, userID: string) {
   const snap = await getDocs(q);
   const likeDoc = snap.docs[0];
   if (likeDoc) {
-    await likeDoc.ref.delete();
+    await deleteDoc(likeDoc.ref);
     const storyRef = doc(db, "stories", storyID);
     await updateDoc(storyRef, { likesCount: increment(-1) });
   }

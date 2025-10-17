@@ -40,10 +40,12 @@ export default function Composer() {
       const fileRef = ref(storage, `stories/${user.uid}/${Date.now()}.${ext}`);
       await uploadBytes(fileRef, blob);
       const url = await getDownloadURL(fileRef);
+      const storagePath = fileRef.fullPath;
       await addDoc(collection(db, "stories"), {
         userID: user.uid,
         content: text.trim(),
         imageURL: url,
+        storagePath,
         likesCount: 0,
         commentsCount: 0,
         createdAt: serverTimestamp(),
