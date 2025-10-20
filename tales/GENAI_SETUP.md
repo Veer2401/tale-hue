@@ -29,7 +29,7 @@ If you need user-scoped OAuth, follow Google's OAuth flow and provide credential
 Some older or specific endpoints may accept `GENAI_API_KEY`. You can set:
 
 ```bash
-export GENAI_API_KEY="YOUR_KEY_HERE"
+export GENAI_API_KEY="AQ.Ab8RN6JzU3ZMV_KAY2ThfUJZcf5-ISt_7wN0P4qWHnjIt3RlPQ"
 ```
 
 But note: the Generative API often rejects API keys (see 401/AUTH errors). Prefer service accounts / ADC.

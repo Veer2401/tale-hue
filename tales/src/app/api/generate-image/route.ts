@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 // Prefer SDK (@google/genai) and fall back to REST + procedural SVG
 import { GoogleGenAI } from "@google/genai";
+import { GoogleAuth } from "google-auth-library";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -47,6 +48,64 @@ Must include:
 - Accents using #7c3aed and #22d3ee
 - Short caption (<=5 words) at bottom
 - No external images or <image> tags`;
+    // If service account credentials (ADC) are available, try the REST image
+    // generation endpoint using OAuth2 (this supports image outputs). If that
+    // fails or is not configured, fall back to SDK/text-SVG flow below.
+    const hasJsonCred = Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+    const hasCredFile = Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS && fs.existsSync(process.env.GOOGLE_APPLICATION_CREDENTIALS));
+    if (hasJsonCred || hasCredFile) {
+      try {
+        // Ensure ADC is available: if GOOGLE_APPLICATION_CREDENTIALS_JSON is set,
+        // write to a temp file so google-auth-library can pick it up.
+        if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON && !process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+          const tmp = path.join(os.tmpdir(), `gcloud-sa-${Date.now()}.json`);
+          fs.writeFileSync(tmp, process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON, { encoding: "utf8" });
+          process.env.GOOGLE_APPLICATION_CREDENTIALS = tmp;
+        }
+
+        const auth = new GoogleAuth({ scopes: ["https://www.googleapis.com/auth/cloud-platform"] });
+        const client = await auth.getClient();
+        const token = await client.getAccessToken();
+        const accessToken = token?.token;
+        if (accessToken) {
+          // Call the Generative API images endpoint (REST). The exact path
+          // and payload depend on your Google GenAI access. Here's a minimal
+          // example using a hypothetical images endpoint that supports PNG base64.
+          const body = {
+            prompt: guide,
+            size: "1024x1024",
+            format: "png", // request PNG output if supported
+          };
+          const resp = await fetch("https://generativelanguage.googleapis.com/v1/images:generate", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify(body),
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            // Many providers return base64-encoded image data in a field like
+            // data[0].b64_json or similar. Try common shapes safely.
+            const b64 = data?.data?.[0]?.b64 || data?.results?.[0]?.b64_json || data?.b64_json || undefined;
+            if (typeof b64 === "string") {
+              const bin = Buffer.from(b64, "base64");
+              return new NextResponse(bin, { status: 200, headers: { "Content-Type": "image/png", "Cache-Control": "no-store" } });
+            }
+            // If the endpoint returned raw bytes, convert to ArrayBuffer
+            if (data?.binary) {
+              const bin = Buffer.from(data.binary, "base64");
+              return new NextResponse(bin, { status: 200, headers: { "Content-Type": "image/png", "Cache-Control": "no-store" } });
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Image endpoint call failed:", String(e));
+        // fall through to SDK/text-based SVG generation below
+      }
+    }
+
     // Use the Gemini 2.5 Flash model via the official SDK. If the SDK
     // call fails or returns no usable text, fall back to a procedural SVG.
     let raw: string = "";
