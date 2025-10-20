@@ -1,9 +1,32 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
 // Prefer SDK (@google/genai) and fall back to REST + procedural SVG
 import { GoogleGenAI } from "@google/genai";
-import { Resvg } from "@resvg/resvg-js";
+import fs from "fs";
+import os from "os";
+import path from "path";
 
-const GEMINI_API_KEY = "AQ.Ab8RN6JzU3ZMV_KAY2ThfUJZcf5-ISt_7wN0P4qWHnjIt3RlPQ";
+// Read credentials from env. Prefer Google Application Default Credentials
+// (service account JSON file path via GOOGLE_APPLICATION_CREDENTIALS or
+// JSON string via GOOGLE_APPLICATION_CREDENTIALS_JSON). As a fallback,
+// a GENAI_API_KEY may be present, but many GenAI endpoints require ADC.
+const GENAI_API_KEY = process.env.GENAI_API_KEY || "";
+
+function ensureServiceAccountFile(): void {
+  // If the JSON string is provided in an env var, write it to a temp file
+  // and set GOOGLE_APPLICATION_CREDENTIALS to that path so the SDK picks it up.
+  try {
+    const json = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
+    if (json && !process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+      const tmpdir = os.tmpdir();
+      const p = path.join(tmpdir, `gcloud-sa-${Date.now()}.json`);
+      fs.writeFileSync(p, json, { encoding: "utf8", mode: 0o600 });
+      process.env.GOOGLE_APPLICATION_CREDENTIALS = p;
+    }
+  } catch (e) {
+    // ignore file system issues; SDK will fail later with a clear error
+  }
+}
 
 export async function POST(req: NextRequest) {
   let lower = "";
@@ -24,43 +47,47 @@ Must include:
 - Accents using #7c3aed and #22d3ee
 - Short caption (<=5 words) at bottom
 - No external images or <image> tags`;
-    // 1) Try the new SDK first (gemini-2.5-flash)
+    // Use the Gemini 2.5 Flash model via the official SDK. If the SDK
+    // call fails or returns no usable text, fall back to a procedural SVG.
     let raw: string = "";
     try {
-      const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-      const sdkRes = await ai.models.generateContent({
+      const ai = new GoogleGenAI({ apiKey: GENAI_API_KEY || undefined });
+      // First, attempt to generate a raster image via any image API on the SDK.
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const imagesApi = (ai as any).images || (ai as any).image;
+        if (imagesApi && typeof imagesApi.generate === "function") {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const imgResp: any = await imagesApi.generate({ prompt: promptStr });
+          const b64 = imgResp?.b64_json || imgResp?.data?.[0]?.b64_json || imgResp?.base64 || imgResp?.image;
+          if (typeof b64 === "string" && b64.length > 100) {
+            const buf = Buffer.from(b64, "base64");
+            return new NextResponse(buf, { status: 200, headers: { "Content-Type": "image/png", "Cache-Control": "no-store" } });
+          }
+        }
+      } catch (imgErr) {
+        // ignore and fall back to text/SVG path below
+        console.debug("image SDK attempt failed:", String(imgErr));
+      }
+
+      // models.generateContent's typings are broad; cast to any for runtime call
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sdkRes: unknown = await (ai.models as any).generateContent({
         model: "gemini-2.5-flash",
         contents: guide,
-      } as any);
-      const outText: string = (sdkRes as any)?.text || (sdkRes as any)?.output_text || "";
-      if (outText) {
-        raw = outText.trim();
-      }
-    } catch {}
-
-    // 2) If no result, try v1 REST models cascade
-    const modelCandidates = [
-      "gemini-1.5-flash-latest",
-      "gemini-1.5-flash",
-      "gemini-1.5-flash-8b-latest",
-      "gemini-1.5-flash-8b",
-      "gemini-1.5-pro-latest",
-      "gemini-1.5-pro",
-    ];
-    for (const modelName of modelCandidates) {
-      try {
-        const resp = await fetch(`https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: guide }] }] }),
-        });
-        if (!resp.ok) {
-          continue;
-        }
-        const data: any = await resp.json();
-        raw = raw || (data?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
-        if (raw) break;
-      } catch {}
+      });
+      // SDK shapes vary; try common fields safely
+      const s = sdkRes as Record<string, unknown> | undefined;
+      const outText =
+        (s && typeof s.text === "string" && s.text) ||
+        (s && typeof s.output_text === "string" && s.output_text) ||
+        // candidates path: candidates[0].content.parts[0].text
+        (s && Array.isArray(s.candidates) && (s.candidates[0] as any)?.content?.parts?.[0]?.text) ||
+        "";
+      if (outText) raw = String(outText).trim();
+    } catch (e) {
+      // If SDK fails, we intentionally fall back to proceduralSvg below
+      console.error("Gemini SDK error:", String(e));
     }
     // Extract raw <svg>...</svg> even if wrapped in code fences or prefixed text
     const match = raw.match(/<svg[\s\S]*?<\/svg>/i);
@@ -71,8 +98,27 @@ Must include:
     const tooSimple = svg && /<circle[\s\S]*?<\/svg>$/i.test(svg) && (svg.match(/<circle/gi)?.length || 0) <= 1 && (svg.match(/<rect|<path|<line|<polygon/gi)?.length || 0) === 0;
     const themed = lower.includes("diwali") || lower.includes("deepavali") ? diwaliSVG(prompt) : undefined;
     const finalSvg = !svg || tooSimple ? (themed || safeFallback(prompt.slice(0, 60))) : svg;
-    const png = rasterize(finalSvg);
-    return new NextResponse(png as any, {
+    const out = await rasterize(finalSvg);
+    if (typeof out === "string") {
+      // rasterization failed or resvg unavailable - return SVG directly
+      return new NextResponse(out, {
+        status: 200,
+        headers: { "Content-Type": "image/svg+xml", "Cache-Control": "no-store" },
+      });
+    }
+    if (out instanceof Uint8Array) {
+      // Convert to a plain ArrayBuffer slice to satisfy BodyInit typing
+      const ab = Uint8Array.from(out).buffer;
+      return new NextResponse(ab, {
+        status: 200,
+        headers: {
+          "Content-Type": "image/png",
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+    // Fallback: if rasterize returned something unexpected, return as text
+    return new NextResponse(String(out), {
       status: 200,
       headers: {
         "Content-Type": "image/png",
@@ -83,8 +129,15 @@ Must include:
     // As a last resort, return a generated fallback SVG instead of 500 to avoid UI error
     const msg = typeof err?.message === "string" ? err.message : "";
     const svg = (lower.includes("diwali") || lower.includes("deepavali")) ? diwaliSVG(promptStr) : proceduralSVG(msg || "Tale Hue");
-    const png = rasterize(svg);
-    return new NextResponse(png as any, { status: 200, headers: { "Content-Type": "image/png", "Cache-Control": "no-store" } });
+    const out = await rasterize(svg);
+    if (typeof out === "string") {
+      return new NextResponse(out, { status: 200, headers: { "Content-Type": "image/svg+xml", "Cache-Control": "no-store" } });
+    }
+    if (out instanceof Uint8Array) {
+      const ab = Uint8Array.from(out).buffer;
+      return new NextResponse(ab, { status: 200, headers: { "Content-Type": "image/png", "Cache-Control": "no-store" } });
+    }
+    return new NextResponse(String(out), { status: 200, headers: { "Content-Type": "image/png", "Cache-Control": "no-store" } });
   }
 }
 
@@ -167,10 +220,22 @@ function diwaliSVG(text: string): string {
 </svg>`;
 }
 
-function rasterize(svg: string): Uint8Array {
-  const r = new Resvg(svg, { fitTo: { mode: "width", value: 1024 } });
-  const img = r.render();
-  return img.asPng();
+// Try to lazily import resvg at runtime. If unavailable or it errors, return
+// the original SVG string as a fallback so callers can still render an image
+// (browsers accept SVG blobs/URLs).
+async function rasterize(svg: string): Promise<Uint8Array | string> {
+  try {
+    const mod = await import("@resvg/resvg-js");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const Resvg = (mod as any).Resvg || (mod as any).default;
+    if (!Resvg) throw new Error("Resvg not available");
+    const r = new (Resvg as any)(svg, { fitTo: { mode: "width", value: 1024 } });
+    const img = r.render();
+    return img.asPng();
+  } catch (e) {
+    // If rasterization isn't possible in the environment, return SVG string.
+    return svg;
+  }
 }
 
 function generateShapes(rand: () => number, a1: string, a2: string, count: number): string {

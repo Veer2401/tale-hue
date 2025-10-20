@@ -8,10 +8,21 @@ export async function GET() {
       model: "gemini-2.5-flash",
       contents: "Explain how AI works in a few words",
     });
-    const text = (response as any)?.text || (response as any)?.output_text || JSON.stringify(response);
+    const resp = response as unknown;
+    let text = "";
+    try {
+      const maybe = resp as Record<string, unknown>;
+      if (typeof maybe.text === "string") text = maybe.text;
+      else if (typeof maybe.output_text === "string") text = maybe.output_text;
+      else if (Array.isArray(maybe.candidates)) text = JSON.stringify(maybe.candidates);
+      else text = JSON.stringify(resp);
+    } catch {
+      text = JSON.stringify(resp);
+    }
     return NextResponse.json({ ok: true, text });
-  } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || String(e) }, { status: 500 });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }
 

@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { auth, storage, db } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
@@ -8,6 +8,7 @@ export default function Composer() {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
+  const previewMeta = useRef<Map<string, string>>(new Map());
 
   const generate = async () => {
     if (!text.trim() || text.length > 150) return;
@@ -15,15 +16,24 @@ export default function Composer() {
     try {
       const res = await fetch("/api/generate-image", { method: "POST", body: JSON.stringify({ prompt: text }), headers: { "Content-Type": "application/json" } });
       if (!res.ok) {
-        // Try to parse JSON error for debugging in console, but don't surface to user
-        try { console.debug("gen error", await res.json()); } catch {}
+        // Try to parse response body for debugging in console (JSON or text)
+        try {
+          const ct = res.headers.get("Content-Type") || "";
+          if (ct.includes("application/json")) {
+            console.debug("gen error json", await res.json());
+          } else {
+            console.debug("gen error text", await res.text());
+          }
+        } catch (e) {
+          console.debug("gen error (unable to parse body)", e);
+        }
         throw new Error("gen error");
       }
-      const ct = res.headers.get("Content-Type") || "image/png";
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      setPreview(url);
-      (setPreview as any)._contentType = ct;
+  const ct = res.headers.get("Content-Type") || "image/png";
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  setPreview(url);
+  previewMeta.current.set(url, ct);
     } finally {
       setLoading(false);
     }
@@ -34,8 +44,8 @@ export default function Composer() {
     if (!user || !preview) return;
     setLoading(true);
     try {
-      const blob = await fetch(preview).then((r) => r.blob());
-      const ct = (setPreview as any)._contentType || blob.type || "image/png";
+  const blob = await fetch(preview).then((r) => r.blob());
+  const ct = previewMeta.current.get(preview) || blob.type || "image/png";
       const ext = ct.includes("svg") ? "svg" : ct.includes("jpeg") ? "jpg" : ct.includes("png") ? "png" : "png";
       const fileRef = ref(storage, `stories/${user.uid}/${Date.now()}.${ext}`);
       await uploadBytes(fileRef, blob);
@@ -51,7 +61,8 @@ export default function Composer() {
         createdAt: serverTimestamp(),
       });
       setText("");
-      setPreview(null);
+  previewMeta.current.delete(preview);
+  setPreview(null);
     } finally {
       setLoading(false);
     }

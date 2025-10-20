@@ -15,6 +15,11 @@ export type Story = {
   likesCount: number;
   commentsCount: number;
 };
+export type Comment = {
+  id: string;
+  userID: string;
+  text: string;
+};
 
 export default function StoryCard({ story }: { story: Story }) {
   const [likes, setLikes] = useState(story.likesCount);
@@ -22,9 +27,9 @@ export default function StoryCard({ story }: { story: Story }) {
   const [commentsCount, setCommentsCount] = useState(story.commentsCount);
   const [liked, setLiked] = useState(false);
   const [author, setAuthor] = useState<{ displayName?: string; profileImage?: string } | null>(null);
-  const [comments, setComments] = useState<any[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
   const [pendingDelete, setPendingDelete] = useState(false);
-  const [deleteTimer, setDeleteTimer] = useState<any>(null);
+  const [deleteTimer, setDeleteTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const u = auth.currentUser;
@@ -43,7 +48,15 @@ export default function StoryCard({ story }: { story: Story }) {
     const q = query(collection(db, "comments"), where("storyID", "==", story.id));
     const unsub = onSnapshot(q, (snap) => {
       setCommentsCount(snap.size);
-      setComments(snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })));
+      setComments(snap.docs.map((d) => {
+        const data = d.data() as Record<string, unknown>;
+        const getStr = (k: string) => (typeof data[k] === "string" ? String(data[k]) : "");
+        return {
+          id: d.id,
+          userID: getStr("userID"),
+          text: getStr("text"),
+        } as Comment;
+      }));
     });
     return () => unsub();
   }, [story.id]);
@@ -64,8 +77,9 @@ export default function StoryCard({ story }: { story: Story }) {
   useEffect(() => {
     const q = query(collection(db, "profiles"), where("userID", "==", story.userID));
     const unsub = onSnapshot(q, (snap) => {
-      const d = snap.docs[0]?.data() as any;
-      setAuthor(d ?? null);
+      const d = snap.docs[0]?.data() as Record<string, unknown> | undefined;
+      if (d) setAuthor({ displayName: typeof d.displayName === 'string' ? String(d.displayName) : undefined, profileImage: typeof d.profileImage === 'string' ? String(d.profileImage) : undefined });
+      else setAuthor(null);
     });
     return () => unsub();
   }, [story.userID]);

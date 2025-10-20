@@ -5,14 +5,31 @@ import { collection, getDocs, query, where, limit, doc, getDoc } from "firebase/
 import { auth } from "@/lib/firebase";
 import { followUser, unfollowUser } from "@/lib/firestore";
 
+type Profile = {
+  id: string;
+  userID?: string;
+  displayName?: string;
+  bio?: string;
+  profileImage?: string;
+};
+
 export default function SearchPage() {
   const [qText, setQText] = useState("");
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<Profile[]>([]);
   const run = async () => {
     if (!qText.trim()) return setResults([]);
     const qy = query(collection(db, "profiles"), where("displayName", ">=", qText), where("displayName", "<=", qText + "\uf8ff"), limit(10));
     const snap = await getDocs(qy);
-    setResults(snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })));
+    setResults(snap.docs.map((d) => {
+      const data = d.data() as Record<string, unknown>;
+      const getStr = (k: string) => (typeof data[k] === "string" ? String(data[k]) : undefined);
+      return {
+        id: d.id,
+        displayName: getStr("displayName"),
+        bio: getStr("bio"),
+        profileImage: getStr("profileImage"),
+      } as Profile;
+    }));
   };
   useEffect(() => {
     const t = setTimeout(run, 300);
@@ -45,8 +62,10 @@ function FollowButton({ targetId }: { targetId: string }) {
     (async () => {
       if (!u) return setFollowing(false);
       const snap = await getDoc(doc(db, "profiles", u.uid));
-      const data = snap.data() as any;
-      setFollowing(Boolean(data?.following?.includes(targetId)));
+      const data = snap.data() as Record<string, unknown> | undefined;
+      if (!data) return setFollowing(false);
+      const following = Array.isArray(data.following) ? (data.following as unknown[]) : [];
+      setFollowing(following.includes(targetId));
     })();
   }, [u?.uid, targetId]);
   if (!u) return null;

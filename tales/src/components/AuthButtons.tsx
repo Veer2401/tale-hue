@@ -1,13 +1,13 @@
 "use client";
 import { useState } from "react";
 import { auth, googleProvider, getInvisibleRecaptcha } from "@/lib/firebase";
-import { signInWithPopup, signInWithPhoneNumber, signOut } from "firebase/auth";
+import { signInWithPopup, signInWithPhoneNumber, signOut, ConfirmationResult } from "firebase/auth";
 
 export default function AuthButtons() {
   const [phone, setPhone] = useState("");
   const [codeSent, setCodeSent] = useState(false);
   const [otp, setOtp] = useState("");
-  const [confirmResult, setConfirmResult] = useState<any>(null);
+  const [confirmResult, setConfirmResult] = useState<ConfirmationResult | null>(null);
 
   const signInGoogle = async () => {
     await signInWithPopup(auth, googleProvider);

@@ -16,11 +16,11 @@ export default function ProfilePage() {
     if (!u) return;
     (async () => {
       const snap = await getDoc(doc(db, "profiles", u.uid));
-      const data = snap.data() as any;
+      const data = snap.data() as Record<string, unknown> | undefined;
       if (data) {
-        setDisplayName(data.displayName || "");
-        setBio(data.bio || "");
-        setImage(data.profileImage || "");
+        setDisplayName(typeof data.displayName === 'string' ? data.displayName : "");
+        setBio(typeof data.bio === 'string' ? data.bio : "");
+        setImage(typeof data.profileImage === 'string' ? data.profileImage : "");
       }
     })();
   }, [u?.uid]);

@@ -17,6 +17,7 @@ import {
   limit,
   deleteDoc,
 } from "firebase/firestore";
+import type { DocumentData } from "firebase/firestore";
 
 export type UserDoc = {
   uid: string;
@@ -55,7 +56,7 @@ export async function ensureUserAndProfile(u: {
       ...(u.phoneNumber ? { phoneNumber: u.phoneNumber } : {}),
       ...(u.photoURL ? { photoURL: u.photoURL } : {}),
     };
-    await setDoc(userRef, userDoc as any, { merge: true });
+  await setDoc(userRef, userDoc as DocumentData, { merge: true });
   }
 
   const profileRef = doc(db, "profiles", u.uid);
