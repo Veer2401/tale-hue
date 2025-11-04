@@ -3,8 +3,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import { Camera, Edit2, Save, Heart, MessageCircle } from 'lucide-react';
-import { storage, db } from '@/lib/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db } from '@/lib/firebase';
 import { doc, updateDoc, collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { Story } from '@/types';
 
@@ -28,7 +27,7 @@ export default function Profile() {
     if (!user) return;
     
     const q = query(
-      collection(db, 'stories'), 
+      collection(db, 'posts'), 
       where('userID', '==', user.uid),
       orderBy('createdAt', 'desc')
     );
@@ -49,10 +48,15 @@ export default function Profile() {
     const file = e.target.files[0];
     
     try {
-      const imageRef = ref(storage, `profileImages/${user.uid}/${file.name}`);
-      await uploadBytes(imageRef, file);
-      const imageURL = await getDownloadURL(imageRef);
+      // Convert to base64
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
       
+      const imageURL = await base64Promise;
       await updateProfile({ profileImage: imageURL });
     } catch (error) {
       console.error('Error uploading image:', error);

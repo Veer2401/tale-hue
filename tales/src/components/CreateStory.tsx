@@ -2,9 +2,8 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { db, storage } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, doc, updateDoc, arrayUnion } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db } from '@/lib/firebase';
+import { collection, addDoc } from 'firebase/firestore';
 import { Sparkles, Image as ImageIcon, Loader2, RefreshCw, Send } from 'lucide-react';
 
 export default function CreateStory() {
@@ -145,48 +144,88 @@ export default function CreateStory() {
   };
 
   const uploadStory = async (imageBlob: Blob) => {
-    if (!user) return;
+    if (!user) {
+      setError('Please sign in to post stories');
+      return;
+    }
     
     setUploading(true);
+    setError(null);
     
     try {
-      // Upload image to Firebase Storage
-      const storyId = `story_${Date.now()}`;
-      const imageRef = ref(storage, `stories/${user.uid}/${storyId}.png`);
-      await uploadBytes(imageRef, imageBlob);
-      const imageURL = await getDownloadURL(imageRef);
+      console.log('Starting upload process...');
+      
+      // Create a compressed version of the image
+      const img = new Image();
+      const imgUrl = URL.createObjectURL(imageBlob);
+      
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = imgUrl;
+      });
+      
+      // Create canvas and compress image
+      const canvas = document.createElement('canvas');
+      const maxSize = 800; // Reduce size for Firestore limits
+      let width = img.width;
+      let height = img.height;
+      
+      // Scale down if needed
+      if (width > maxSize || height > maxSize) {
+        if (width > height) {
+          height = (height / width) * maxSize;
+          width = maxSize;
+        } else {
+          width = (width / height) * maxSize;
+          height = maxSize;
+        }
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0, width, height);
+      }
+      
+      // Convert to base64 with lower quality (0.6 = 60% quality)
+      const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
+      console.log('Image compressed, size:', compressedBase64.length, 'bytes');
+      
+      URL.revokeObjectURL(imgUrl);
 
-      // Create story document in Firestore
+      // Create story document in Firestore with compressed image
+      const storyId = `story_${Date.now()}`;
       const storyData = {
         storyID: storyId,
         userID: user.uid,
         content: content,
-        imageURL: imageURL,
+        imageURL: compressedBase64,
         likesCount: 0,
         commentsCount: 0,
-        createdAt: serverTimestamp()
+        createdAt: new Date()
       };
 
-      await addDoc(collection(db, 'stories'), storyData);
-
-      // Update user profile with new story
-      const profileRef = doc(db, 'profiles', user.uid);
-      await updateDoc(profileRef, {
-        stories: arrayUnion(storyId)
-      });
+      console.log('Creating post document...');
+      await addDoc(collection(db, 'posts'), storyData);
+      
+      console.log('Post created successfully!');
 
       // Reset form
       setContent('');
       setPreviewImage(null);
       setImageBlob(null);
-      setError(null);
       
       // Show success message
-      alert('Story posted successfully! 🎉');
+      alert('✨ Your story was posted successfully!');
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading story:', error);
-      setError('Failed to upload story. Please try again.');
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+      setError(`Failed to upload story: ${error.message}`);
+      alert(`Error: ${error.message}`);
     } finally {
       setUploading(false);
     }

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, increment, addDoc, serverTimestamp, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { Story, Profile } from '@/types';
-import { Heart, MessageCircle, Share2, X, Send } from 'lucide-react';
+import { Heart, MessageCircle, Share2, X, Send, PlusCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface StoryWithProfile extends Story {
@@ -21,7 +21,11 @@ interface Comment {
   displayName?: string;
 }
 
-export default function Feed() {
+interface FeedProps {
+  onNavigateToCreate?: () => void;
+}
+
+export default function Feed({ onNavigateToCreate }: FeedProps) {
   const { user, profile } = useAuth();
   const [stories, setStories] = useState<StoryWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,13 +35,23 @@ export default function Feed() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    const q = query(collection(db, 'stories'), orderBy('createdAt', 'desc'));
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
     
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       const storiesData: StoryWithProfile[] = [];
       
       for (const docSnap of snapshot.docs) {
         const storyData = { ...docSnap.data(), id: docSnap.id } as StoryWithProfile;
+        
+        // Skip if storyData doesn't have required fields
+        if (!storyData.userID || !storyData.storyID) {
+          continue;
+        }
         
         // Fetch user profile
         const profileSnap = await getDocs(
@@ -49,7 +63,7 @@ export default function Feed() {
         }
 
         // Check if current user liked this story
-        if (user) {
+        if (user && user.uid) {
           const likesQuery = query(
             collection(db, 'likes'),
             where('storyID', '==', storyData.storyID),
@@ -70,7 +84,7 @@ export default function Feed() {
   }, [user]);
 
   const handleLike = async (storyId: string, isLiked: boolean) => {
-    if (!user) return;
+    if (!user || !user.uid || !storyId) return;
 
     try {
       const likesQuery = query(
@@ -86,10 +100,10 @@ export default function Feed() {
           await deleteDoc(doc(db, 'likes', likesSnapshot.docs[0].id));
           
           // Update story likes count
-          const storyQuery = query(collection(db, 'stories'), where('storyID', '==', storyId));
+          const storyQuery = query(collection(db, 'posts'), where('storyID', '==', storyId));
           const storySnapshot = await getDocs(storyQuery);
           if (!storySnapshot.empty) {
-            const storyDocRef = doc(db, 'stories', storySnapshot.docs[0].id);
+            const storyDocRef = doc(db, 'posts', storySnapshot.docs[0].id);
             await updateDoc(storyDocRef, {
               likesCount: increment(-1)
             });
@@ -104,10 +118,10 @@ export default function Feed() {
         });
 
         // Update story likes count
-        const storyQuery = query(collection(db, 'stories'), where('storyID', '==', storyId));
+        const storyQuery = query(collection(db, 'posts'), where('storyID', '==', storyId));
         const storySnapshot = await getDocs(storyQuery);
         if (!storySnapshot.empty) {
-          const storyDocRef = doc(db, 'stories', storySnapshot.docs[0].id);
+          const storyDocRef = doc(db, 'posts', storySnapshot.docs[0].id);
           await updateDoc(storyDocRef, {
             likesCount: increment(1)
           });
@@ -119,6 +133,8 @@ export default function Feed() {
   };
 
   const openComments = async (story: StoryWithProfile) => {
+    if (!story || !story.storyID) return;
+    
     setSelectedStory(story);
     
     // Fetch comments for this story
@@ -157,7 +173,7 @@ export default function Feed() {
   };
 
   const handleAddComment = async () => {
-    if (!user || !profile || !selectedStory || !newComment.trim()) return;
+    if (!user || !user.uid || !profile || !selectedStory || !selectedStory.storyID || !newComment.trim()) return;
     
     setSubmitting(true);
     try {
@@ -169,10 +185,10 @@ export default function Feed() {
       });
 
       // Update comments count
-      const storyQuery = query(collection(db, 'stories'), where('storyID', '==', selectedStory.storyID));
+      const storyQuery = query(collection(db, 'posts'), where('storyID', '==', selectedStory.storyID));
       const storySnapshot = await getDocs(storyQuery);
       if (!storySnapshot.empty) {
-        const storyDocRef = doc(db, 'stories', storySnapshot.docs[0].id);
+        const storyDocRef = doc(db, 'posts', storySnapshot.docs[0].id);
         await updateDoc(storyDocRef, {
           commentsCount: increment(1)
         });
@@ -194,15 +210,38 @@ export default function Feed() {
     );
   }
 
+  if (!user) {
+    return (
+      <div className="max-w-2xl mx-auto p-6 text-center">
+        <div className="py-12">
+          <p className="text-zinc-500 text-lg mb-4">Please sign in to view the feed ✨</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-6">
-      <h2 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100 mb-8">
-        Latest Stories
-      </h2>
-      
       {stories.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-zinc-500 text-lg">No stories yet. Be the first to create one! ✨</p>
+        <div className="text-center py-16">
+          <div className="max-w-md mx-auto">
+            <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 flex items-center justify-center">
+              <PlusCircle size={48} className="text-white" />
+            </div>
+            <h3 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-3">
+              No stories yet
+            </h3>
+            <p className="text-zinc-500 mb-6">
+              Be the first to share your story and bring it to life with AI! ✨
+            </p>
+            <button
+              onClick={onNavigateToCreate}
+              className="px-8 py-4 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 text-white font-semibold rounded-2xl hover:shadow-2xl transform hover:scale-105 transition-all flex items-center gap-3 mx-auto"
+            >
+              <PlusCircle size={20} />
+              Create Your First Story
+            </button>
+          </div>
         </div>
       ) : (
         stories.map((story) => (

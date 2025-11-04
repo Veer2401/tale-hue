@@ -16,7 +16,7 @@ export default function Home() {
       <main className="flex-1 ml-64">
         {/* Keep all components mounted but hide inactive ones to preserve state */}
         <div className={currentView === 'feed' ? 'block' : 'hidden'}>
-          <Feed />
+          <Feed onNavigateToCreate={() => setCurrentView('create')} />
         </div>
         <div className={currentView === 'create' ? 'block' : 'hidden'}>
           <CreateStory />
