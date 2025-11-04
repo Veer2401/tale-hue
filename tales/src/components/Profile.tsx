@@ -2,9 +2,9 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
-import { Camera, Edit2, Save, Heart, MessageCircle } from 'lucide-react';
+import { Camera, Edit2, Save, Heart, MessageCircle, Trash2, X, Check } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { doc, updateDoc, collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { doc, updateDoc, collection, query, where, getDocs, orderBy, deleteDoc } from 'firebase/firestore';
 import { Story } from '@/types';
 
 export default function Profile() {
@@ -14,6 +14,10 @@ export default function Profile() {
   const [bio, setBio] = useState('');
   const [userStories, setUserStories] = useState<Story[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [editingStory, setEditingStory] = useState<string | null>(null);
+  const [editedContent, setEditedContent] = useState('');
+  const [selectedStory, setSelectedStory] = useState<Story | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -62,6 +66,76 @@ export default function Profile() {
       console.error('Error uploading image:', error);
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleEditStory = (story: Story) => {
+    setEditingStory(story.storyID);
+    setEditedContent(story.content);
+  };
+
+  const handleSaveStory = async (storyId: string) => {
+    if (!editedContent.trim() || editedContent.length > 150) {
+      alert('Story must be between 1-150 characters');
+      return;
+    }
+
+    try {
+      const storyQuery = query(collection(db, 'posts'), where('storyID', '==', storyId));
+      const storySnapshot = await getDocs(storyQuery);
+      
+      if (!storySnapshot.empty) {
+        const storyDocRef = doc(db, 'posts', storySnapshot.docs[0].id);
+        await updateDoc(storyDocRef, {
+          content: editedContent
+        });
+        
+        // Refresh stories
+        await fetchUserStories();
+        setEditingStory(null);
+        alert('✨ Story updated successfully!');
+      }
+    } catch (error) {
+      console.error('Error updating story:', error);
+      alert('Failed to update story');
+    }
+  };
+
+  const handleDeleteStory = async (story: Story) => {
+    setSelectedStory(story);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!selectedStory) return;
+
+    try {
+      // Delete the post
+      const storyQuery = query(collection(db, 'posts'), where('storyID', '==', selectedStory.storyID));
+      const storySnapshot = await getDocs(storyQuery);
+      
+      if (!storySnapshot.empty) {
+        await deleteDoc(doc(db, 'posts', storySnapshot.docs[0].id));
+      }
+
+      // Delete all likes for this story
+      const likesQuery = query(collection(db, 'likes'), where('storyID', '==', selectedStory.storyID));
+      const likesSnapshot = await getDocs(likesQuery);
+      await Promise.all(likesSnapshot.docs.map(doc => deleteDoc(doc.ref)));
+
+      // Delete all comments for this story
+      const commentsQuery = query(collection(db, 'comments'), where('storyID', '==', selectedStory.storyID));
+      const commentsSnapshot = await getDocs(commentsQuery);
+      await Promise.all(commentsSnapshot.docs.map(doc => deleteDoc(doc.ref)));
+
+      // Refresh stories
+      await fetchUserStories();
+      setShowDeleteConfirm(false);
+      setSelectedStory(null);
+      alert('🗑️ Story deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting story:', error);
+      alert('Failed to delete story');
     }
   };
 
@@ -171,21 +245,67 @@ export default function Profile() {
               {userStories.map((story) => (
                 <div 
                   key={story.storyID} 
-                  className="aspect-square rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity relative group"
+                  className="aspect-square rounded-lg overflow-hidden relative group"
                 >
                   {story.imageURL ? (
                     <>
                       <img src={story.imageURL} alt={story.content} className="w-full h-full object-cover" />
-                      {/* Hover overlay with stats */}
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4 text-white">
-                        <div className="flex items-center gap-1">
-                          <Heart size={20} fill="white" />
-                          <span className="font-semibold">{story.likesCount || 0}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <MessageCircle size={20} fill="white" />
-                          <span className="font-semibold">{story.commentsCount || 0}</span>
-                        </div>
+                      {/* Hover overlay with stats and actions */}
+                      <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3 text-white p-4">
+                        {editingStory === story.storyID ? (
+                          <div className="w-full flex flex-col gap-2">
+                            <textarea
+                              value={editedContent}
+                              onChange={(e) => setEditedContent(e.target.value)}
+                              maxLength={150}
+                              className="w-full px-3 py-2 bg-zinc-800 text-white rounded-lg text-sm resize-none"
+                              rows={3}
+                              autoFocus
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleSaveStory(story.storyID)}
+                                className="flex-1 px-3 py-2 bg-green-500 hover:bg-green-600 rounded-lg text-sm font-semibold flex items-center justify-center gap-1"
+                              >
+                                <Check size={16} /> Save
+                              </button>
+                              <button
+                                onClick={() => setEditingStory(null)}
+                                className="flex-1 px-3 py-2 bg-zinc-600 hover:bg-zinc-700 rounded-lg text-sm font-semibold flex items-center justify-center gap-1"
+                              >
+                                <X size={16} /> Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <p className="text-sm text-center line-clamp-2 mb-2">{story.content}</p>
+                            <div className="flex items-center gap-4 mb-2">
+                              <div className="flex items-center gap-1">
+                                <Heart size={18} fill="white" />
+                                <span className="font-semibold">{story.likesCount || 0}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <MessageCircle size={18} fill="white" />
+                                <span className="font-semibold">{story.commentsCount || 0}</span>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleEditStory(story)}
+                                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm font-semibold flex items-center gap-1"
+                              >
+                                <Edit2 size={14} /> Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteStory(story)}
+                                className="px-4 py-2 bg-red-500 hover:bg-red-600 rounded-lg text-sm font-semibold flex items-center gap-1"
+                              >
+                                <Trash2 size={14} /> Delete
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </div>
                     </>
                   ) : (
@@ -199,6 +319,40 @@ export default function Profile() {
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && selectedStory && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl max-w-md w-full p-6 border border-zinc-200 dark:border-zinc-800">
+            <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 mb-3">
+              Delete Story?
+            </h3>
+            <p className="text-zinc-600 dark:text-zinc-400 mb-4">
+              Are you sure you want to delete this story? This will also delete all likes and comments. This action cannot be undone.
+            </p>
+            <div className="bg-zinc-100 dark:bg-zinc-800 rounded-lg p-3 mb-4">
+              <p className="text-sm text-zinc-900 dark:text-zinc-100 italic">"{selectedStory.content}"</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={confirmDelete}
+                className="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold transition-all"
+              >
+                Delete
+              </button>
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setSelectedStory(null);
+                }}
+                className="flex-1 px-4 py-3 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-xl font-semibold transition-all"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
