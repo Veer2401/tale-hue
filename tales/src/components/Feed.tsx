@@ -33,6 +33,7 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [userLikes, setUserLikes] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!user) {
@@ -61,17 +62,6 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
         if (!profileSnap.empty) {
           storyData.profile = profileSnap.docs[0].data() as Profile;
         }
-
-        // Check if current user liked this story
-        if (user && user.uid) {
-          const likesQuery = query(
-            collection(db, 'likes'),
-            where('storyID', '==', storyData.storyID),
-            where('userID', '==', user.uid)
-          );
-          const likesSnapshot = await getDocs(likesQuery);
-          storyData.isLiked = !likesSnapshot.empty;
-        }
         
         storiesData.push(storyData);
       }
@@ -83,20 +73,50 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
     return unsubscribe;
   }, [user]);
 
-  const handleLike = async (storyId: string, isLiked: boolean) => {
+  // Track which stories the current user has liked
+  useEffect(() => {
+    if (!user) return;
+
+    const likesQuery = query(
+      collection(db, 'likes'),
+      where('userID', '==', user.uid)
+    );
+
+    const unsubscribe = onSnapshot(likesQuery, (snapshot) => {
+      const likedStoryIds = new Set<string>();
+      snapshot.docs.forEach((doc) => {
+        const likeData = doc.data();
+        if (likeData.storyID) {
+          likedStoryIds.add(likeData.storyID);
+        }
+      });
+      console.log('User likes updated:', Array.from(likedStoryIds));
+      setUserLikes(likedStoryIds);
+    });
+
+    return unsubscribe;
+  }, [user]);
+
+  const handleLike = async (storyId: string) => {
     if (!user || !user.uid || !storyId) return;
 
-    try {
-      const likesQuery = query(
-        collection(db, 'likes'),
-        where('storyID', '==', storyId),
-        where('userID', '==', user.uid)
-      );
-      const likesSnapshot = await getDocs(likesQuery);
+    const isCurrentlyLiked = userLikes.has(storyId);
+    console.log('handleLike called:', { storyId, isCurrentlyLiked, userId: user.uid });
 
-      if (isLiked) {
-        // Unlike - remove like
+    // Prevent action if already in the desired state
+    if (isCurrentlyLiked) {
+      // User wants to unlike
+      console.log('Unliking post...');
+      try {
+        const likesQuery = query(
+          collection(db, 'likes'),
+          where('storyID', '==', storyId),
+          where('userID', '==', user.uid)
+        );
+        const likesSnapshot = await getDocs(likesQuery);
+        
         if (!likesSnapshot.empty) {
+          console.log('Found like document, deleting...');
           await deleteDoc(doc(db, 'likes', likesSnapshot.docs[0].id));
           
           // Update story likes count
@@ -108,27 +128,48 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
               likesCount: increment(-1)
             });
           }
+          console.log('Unlike completed');
         }
-      } else {
-        // Like - add like
-        await addDoc(collection(db, 'likes'), {
-          storyID: storyId,
-          userID: user.uid,
-          createdAt: serverTimestamp()
-        });
-
-        // Update story likes count
-        const storyQuery = query(collection(db, 'posts'), where('storyID', '==', storyId));
-        const storySnapshot = await getDocs(storyQuery);
-        if (!storySnapshot.empty) {
-          const storyDocRef = doc(db, 'posts', storySnapshot.docs[0].id);
-          await updateDoc(storyDocRef, {
-            likesCount: increment(1)
-          });
-        }
+      } catch (error) {
+        console.error('Error unliking:', error);
       }
-    } catch (error) {
-      console.error('Error toggling like:', error);
+    } else {
+      // User wants to like - only allow if not already liked
+      console.log('Liking post...');
+      try {
+        // Double check they haven't already liked it
+        const likesQuery = query(
+          collection(db, 'likes'),
+          where('storyID', '==', storyId),
+          where('userID', '==', user.uid)
+        );
+        const existingLike = await getDocs(likesQuery);
+        
+        if (existingLike.empty) {
+          await addDoc(collection(db, 'likes'), {
+            storyID: storyId,
+            userID: user.uid,
+            createdAt: serverTimestamp()
+          });
+          console.log('Like document created');
+
+          // Update story likes count
+          const storyQuery = query(collection(db, 'posts'), where('storyID', '==', storyId));
+          const storySnapshot = await getDocs(storyQuery);
+          if (!storySnapshot.empty) {
+            const storyDocRef = doc(db, 'posts', storySnapshot.docs[0].id);
+            await updateDoc(storyDocRef, {
+              likesCount: increment(1)
+            });
+            console.log('Like count updated');
+          }
+          console.log('Like completed');
+        } else {
+          console.log('Already liked - preventing duplicate');
+        }
+      } catch (error) {
+        console.error('Error liking:', error);
+      }
     }
   };
 
@@ -282,14 +323,14 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
               {/* Actions */}
               <div className="flex items-center gap-6">
                 <button
-                  onClick={() => handleLike(story.storyID, story.isLiked || false)}
+                  onClick={() => handleLike(story.storyID)}
                   className={`flex items-center gap-2 transition-colors ${
-                    story.isLiked 
+                    userLikes.has(story.storyID)
                       ? 'text-red-500' 
                       : 'text-zinc-600 dark:text-zinc-400 hover:text-red-500'
                   }`}
                 >
-                  <Heart size={20} fill={story.isLiked ? 'currentColor' : 'none'} />
+                  <Heart size={20} fill={userLikes.has(story.storyID) ? 'currentColor' : 'none'} />
                   <span>{story.likesCount || 0}</span>
                 </button>
                 <button 
