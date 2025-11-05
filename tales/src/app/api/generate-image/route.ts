@@ -11,7 +11,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
 
-    // Use Gemini 2.0 Flash Experimental for superior prompt generation
+    console.log('Generating image description for:', prompt);
+
+    // Use Gemini 2.0 Flash Experimental (proven to work with current SDK)
     const model = genAI.getGenerativeModel({ 
       model: 'gemini-2.0-flash-exp',
       generationConfig: {
@@ -76,6 +78,8 @@ Output ONLY the ultra-detailed image prompt. No preamble, no explanations. Make 
     const response = result.response;
     const imageDescription = response.text();
 
+    console.log('Generated description:', imageDescription);
+
     return NextResponse.json({ 
       success: true, 
       imageDescription: imageDescription.trim(),
@@ -83,9 +87,14 @@ Output ONLY the ultra-detailed image prompt. No preamble, no explanations. Make 
     });
 
   } catch (error: any) {
-    console.error('Error generating image:', error);
+    console.error('Error generating image description:', error);
+    console.error('Error details:', error.message, error.stack);
     return NextResponse.json(
-      { error: 'Failed to generate image', details: error.message },
+      { 
+        success: false,
+        error: 'Failed to generate image description', 
+        details: error.message 
+      },
       { status: 500 }
     );
   }

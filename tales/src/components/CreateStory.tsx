@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, addDoc } from 'firebase/firestore';
-import { Sparkles, Image as ImageIcon, Loader2, RefreshCw, Send } from 'lucide-react';
+import { Sparkles, Image as ImageIcon, Loader2, RefreshCw, Send, CheckCircle, XCircle } from 'lucide-react';
 
 export default function CreateStory() {
   const { user, profile, signInWithGoogle, error: authError } = useAuth();
@@ -14,6 +14,7 @@ export default function CreateStory() {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [imageBlob, setImageBlob] = useState<Blob | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleGenerateImage = async () => {
     setError(null);
@@ -44,85 +45,36 @@ export default function CreateStory() {
       const data = await response.json();
       
       if (data.success && data.imageDescription) {
-        // Generate image using Pollinations AI (free image generation API)
-        const enhancedPrompt = encodeURIComponent(
-          `${data.imageDescription}, masterpiece, best quality, ultra detailed, 8k, sharp focus, professional photography, award winning, cinematic composition, perfect lighting`
-        );
+        console.log('Enhanced prompt:', data.imageDescription);
         
-        // Use Pollinations AI with Flux-Pro model for superior quality
-        const imageUrl = `https://image.pollinations.ai/prompt/${enhancedPrompt}?width=1024&height=1024&nologo=true&model=flux&enhance=true&seed=${Date.now()}`;
+        // Generate image using Pollinations AI with turbo model for SPEED
+        const enhancedPrompt = encodeURIComponent(data.imageDescription);
         
-        // Fetch the generated image
+        // Use turbo model for 3-5x faster generation with good quality
+        const imageUrl = `https://image.pollinations.ai/prompt/${enhancedPrompt}?width=1024&height=1024&nologo=true&model=turbo&enhance=true&seed=${Date.now()}`;
+        
+        console.log('Fetching image from:', imageUrl);
+        
+        // Fetch and use the image directly (no canvas processing = faster)
         const imageResponse = await fetch(imageUrl);
+        
+        if (!imageResponse.ok) {
+          throw new Error(`Image fetch failed: ${imageResponse.status}`);
+        }
+        
         const imageBlob = await imageResponse.blob();
         
-        // Create a canvas to overlay the story text on the AI image
-        const img = new Image();
-        const imgUrl = URL.createObjectURL(imageBlob);
+        if (imageBlob.size === 0) {
+          throw new Error('Generated image is empty');
+        }
         
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = 1024;
-          canvas.height = 1024;
-          const ctx = canvas.getContext('2d');
-          
-          if (ctx) {
-            // Draw the AI-generated image
-            ctx.drawImage(img, 0, 0, 1024, 1024);
-            
-            // Add artistic semi-transparent overlay with gradient
-            const overlayGradient = ctx.createLinearGradient(0, 700, 0, 1024);
-            overlayGradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
-            overlayGradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.4)');
-            overlayGradient.addColorStop(1, 'rgba(0, 0, 0, 0.85)');
-            ctx.fillStyle = overlayGradient;
-            ctx.fillRect(0, 700, 1024, 324);
-            
-            // Add subtle glow effect behind text
-            ctx.shadowColor = 'rgba(168, 85, 247, 0.4)';
-            ctx.shadowBlur = 30;
-            
-            // Add the story text at bottom with better typography
-            ctx.fillStyle = 'white';
-            ctx.font = 'bold 36px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-            ctx.textAlign = 'center';
-            ctx.letterSpacing = '0.5px';
-            
-            // Word wrap for story text
-            const words = content.split(' ');
-            let line = '';
-            let y = 900;
-            const lineHeight = 48;
-            const maxWidth = 920;
-            
-            words.forEach((word, i) => {
-              const testLine = line + word + ' ';
-              const metrics = ctx.measureText(testLine);
-              if (metrics.width > maxWidth && i > 0) {
-                ctx.fillText(line.trim(), 512, y);
-                line = word + ' ';
-                y += lineHeight;
-              } else {
-                line = testLine;
-              }
-            });
-            ctx.fillText(line.trim(), 512, y);
-            
-            // Convert to blob with high quality
-            canvas.toBlob((finalBlob) => {
-              if (finalBlob) {
-                const previewURL = URL.createObjectURL(finalBlob);
-                setPreviewImage(previewURL);
-                setImageBlob(finalBlob);
-              }
-            }, 'image/png', 1.0);
-          }
-          
-          // Clean up
-          URL.revokeObjectURL(imgUrl);
-        };
+        console.log('Image loaded successfully, size:', imageBlob.size, 'bytes');
         
-        img.src = imgUrl;
+        const previewURL = URL.createObjectURL(imageBlob);
+        setPreviewImage(previewURL);
+        setImageBlob(imageBlob);
+      } else {
+        throw new Error('Failed to generate image description');
       }
     } catch (error) {
       console.error('Error generating image:', error);
@@ -217,31 +169,41 @@ export default function CreateStory() {
       setPreviewImage(null);
       setImageBlob(null);
       
-      // Show success message
-      alert('✨ Your story was posted successfully!');
+      // Show success message with beautiful UI
+      setSuccessMessage('✨ Your story was posted successfully!');
+      setTimeout(() => setSuccessMessage(null), 3000);
       
     } catch (error: any) {
       console.error('Error uploading story:', error);
       console.error('Error code:', error.code);
       console.error('Error message:', error.message);
       setError(`Failed to upload story: ${error.message}`);
-      alert(`Error: ${error.message}`);
     } finally {
       setUploading(false);
     }
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-6">
-      <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-xl p-8 border border-zinc-200 dark:border-zinc-800">
+    <div className="max-w-3xl mx-auto p-6">
+      {/* Success Toast */}
+      {successMessage && (
+        <div className="fixed top-6 right-6 z-50 animate-slide-in">
+          <div className="glass rounded-2xl px-6 py-4 border border-green-500/50 shadow-2xl flex items-center gap-3 neon-glow">
+            <CheckCircle className="text-green-400" size={24} />
+            <p className="text-white font-bold">{successMessage}</p>
+          </div>
+        </div>
+      )}
+
+      <div className="glass rounded-3xl shadow-2xl p-10 border border-purple-500/30">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 flex items-center justify-center">
-            <Sparkles className="text-white" size={24} />
+        <div className="flex items-center gap-4 mb-8">
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-600 via-pink-600 to-orange-500 flex items-center justify-center shadow-xl neon-glow">
+            <Sparkles className="text-white" size={32} />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Create Your Story</h2>
-            <p className="text-sm text-zinc-500">Share your tale in 150 characters or less</p>
+            <h2 className="text-3xl font-black text-white neon-text">Create Your Vibe ✨</h2>
+            <p className="text-sm text-purple-300 font-medium">Drop your story in 150 chars max 🔥</p>
           </div>
         </div>
 
@@ -251,16 +213,16 @@ export default function CreateStory() {
             value={content}
             onChange={(e) => setContent(e.target.value)}
             maxLength={150}
-            placeholder="Write your story here... ✨"
-            className="w-full h-32 p-4 bg-zinc-50 dark:bg-zinc-800 rounded-2xl border-2 border-zinc-200 dark:border-zinc-700 focus:border-purple-500 dark:focus:border-purple-500 focus:outline-none text-zinc-900 dark:text-zinc-100 resize-none"
+            placeholder="What's your story? Make it lit... 🚀"
+            className="w-full h-40 p-6 glass rounded-3xl border-2 border-purple-500/30 focus:border-purple-500 focus:outline-none text-white text-lg resize-none placeholder-purple-300/50 font-medium backdrop-blur-xl"
           />
-          <div className="flex justify-between items-center mt-2">
-            <span className="text-sm text-zinc-500">
+          <div className="flex justify-between items-center mt-3">
+            <span className="text-sm text-purple-300 font-bold">
               {content.length}/150 characters
             </span>
             {content.length > 0 && (
-              <span className={`text-sm ${content.length > 150 ? 'text-red-500' : 'text-green-500'}`}>
-                {content.length > 150 ? '❌ Too long' : '✓ Perfect'}
+              <span className={`text-sm font-black ${content.length > 150 ? 'text-red-400' : 'text-green-400'}`}>
+                {content.length > 150 ? '❌ Too long bestie' : '✓ Perfect vibe'}
               </span>
             )}
           </div>
@@ -269,24 +231,27 @@ export default function CreateStory() {
         {/* Image Preview */}
         {previewImage && (
           <div className="mb-6">
-            <div className="relative rounded-2xl overflow-hidden border-2 border-purple-500">
+            <div className="relative rounded-3xl overflow-hidden border-4 border-purple-500 shadow-2xl neon-glow">
               <img 
                 src={previewImage} 
                 alt="Generated story preview" 
                 className="w-full aspect-square object-cover"
               />
+              <div className="absolute top-4 right-4 px-4 py-2 bg-black/60 backdrop-blur-md rounded-full">
+                <p className="text-xs text-white font-bold">🎨 AI Generated</p>
+              </div>
             </div>
-            <p className="text-xs text-zinc-500 text-center mt-2">
-              Preview of your generated image
+            <p className="text-xs text-purple-300 text-center mt-3 font-medium">
+              Your masterpiece awaits! 🌟
             </p>
           </div>
         )}
 
         {/* Error Message */}
         {(error || authError) && (
-          <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl">
-            <p className="text-sm text-red-600 dark:text-red-400">
-              {error || authError}
+          <div className="mb-6 p-5 bg-red-500/10 border-2 border-red-500/30 rounded-2xl backdrop-blur-sm">
+            <p className="text-sm text-red-300 font-bold">
+              ⚠️ {error || authError}
             </p>
           </div>
         )}
@@ -296,17 +261,17 @@ export default function CreateStory() {
           <button
             onClick={handleGenerateImage}
             disabled={generating || uploading || !content.trim() || content.length > 150}
-            className="w-full py-4 px-6 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 text-white font-semibold rounded-2xl hover:shadow-2xl transform hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-3"
+            className="w-full py-6 px-8 bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 text-white font-black text-xl rounded-full hover:shadow-2xl transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-4 neon-glow"
           >
             {generating ? (
               <>
-                <Loader2 className="animate-spin" size={20} />
-                Generating Magic...
+                <Loader2 className="animate-spin" size={28} />
+                Cooking up magic...
               </>
             ) : (
               <>
-                <ImageIcon size={20} />
-                {user ? 'Generate Image' : 'Sign In to Generate'}
+                <ImageIcon size={28} />
+                {user ? 'Generate My Vibe 🎨' : 'Sign In to Create 🚀'}
               </>
             )}
           </button>
@@ -315,36 +280,29 @@ export default function CreateStory() {
             <button
               onClick={handleGenerateAgain}
               disabled={uploading}
-              className="flex-1 py-4 px-6 bg-zinc-200 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 font-semibold rounded-2xl hover:bg-zinc-300 dark:hover:bg-zinc-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+              className="flex-1 py-5 px-6 glass border-2 border-white/20 text-white font-black text-lg rounded-full hover:bg-white/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 transform hover:scale-105"
             >
-              <RefreshCw size={20} />
-              Generate Again
+              <RefreshCw size={24} />
+              Remix It
             </button>
             <button
               onClick={handlePost}
               disabled={uploading}
-              className="flex-1 py-4 px-6 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 text-white font-semibold rounded-2xl hover:shadow-2xl transform hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+              className="flex-1 py-5 px-6 bg-gradient-to-r from-green-500 via-emerald-500 to-cyan-500 text-white font-black text-lg rounded-full hover:shadow-2xl transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 neon-glow"
             >
               {uploading ? (
                 <>
-                  <Loader2 className="animate-spin" size={20} />
+                  <Loader2 className="animate-spin" size={24} />
                   Posting...
                 </>
               ) : (
                 <>
-                  <Send size={20} />
-                  Post Story
+                  <Send size={24} />
+                  Drop It! 🔥
                 </>
               )}
             </button>
           </div>
-        )}
-
-        {/* Info */}
-        {!user && (
-          <p className="text-center text-sm text-zinc-500 mt-4">
-            Sign in with Google to start creating stories
-          </p>
         )}
       </div>
     </div>
