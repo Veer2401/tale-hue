@@ -26,6 +26,89 @@ export default function CreateStory() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // Predefined suggestions
+  const suggestions = [
+    "Sunset beach café vibe",
+    "Inside a cool recording studio",
+    "Secret rooftop garden",
+    "Neon arcade nostalgia",
+    "Cozy winter market scene"
+  ];
+
+  const handleSuggestionClick = async (suggestion: string) => {
+    setContent(suggestion);
+    setError(null);
+    
+    if (!user) {
+      try {
+        await signInWithGoogle();
+      } catch (err) {
+        setError('Failed to sign in. Please try again.');
+      }
+      return;
+    }
+
+    setGenerating(true);
+    
+    try {
+      const response = await fetch('/api/generate-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: suggestion })
+      });
+
+      const data = await response.json();
+      
+      if (data.success && data.imageDescription) {
+        console.log('Enhanced prompt:', data.imageDescription);
+        
+        // Use Flux Pro model for highest quality and faster generation
+        const enhancedPrompt = encodeURIComponent(
+          data.imageDescription + 
+          ", masterpiece, best quality, photorealistic, 8K UHD, ultra detailed, sharp focus, vivid colors, professional photography"
+        );
+        
+        // Flux Pro model: Higher quality with optimized speed
+        const imageUrl = `https://image.pollinations.ai/prompt/${enhancedPrompt}?width=1536&height=1536&nologo=true&model=flux-pro&enhance=true&seed=${Date.now()}`;
+        
+        console.log('Fetching high-quality image from Pollinations...');
+        
+        // Fetch image with timeout for faster failure detection
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+        
+        const imageResponse = await fetch(imageUrl, { 
+          signal: controller.signal,
+          cache: 'no-store'
+        });
+        clearTimeout(timeoutId);
+        
+        if (!imageResponse.ok) {
+          throw new Error(`Image generation failed: ${imageResponse.status}`);
+        }
+        
+        const imageBlob = await imageResponse.blob();
+        
+        if (imageBlob.size === 0) {
+          throw new Error('Generated image is empty');
+        }
+        
+        console.log('High-quality image loaded successfully, size:', imageBlob.size, 'bytes');
+        
+        const previewURL = URL.createObjectURL(imageBlob);
+        setPreviewImage(previewURL);
+        setImageBlob(imageBlob);
+      } else {
+        throw new Error('Failed to generate image');
+      }
+    } catch (error) {
+      console.error('Error generating image:', error);
+      setError('Failed to generate image. Please try again.');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const handleGenerateImage = async () => {
     setError(null);
     
@@ -251,6 +334,25 @@ export default function CreateStory() {
             <p className="text-sm text-red-300 font-bold">
               ⚠️ {error || authError}
             </p>
+          </div>
+        )}
+
+        {/* Quick Suggestions */}
+        {!previewImage && (
+          <div className="mb-6">
+            <p className="text-sm text-purple-300 font-bold mb-3">✨ Quick Ideas:</p>
+            <div className="flex flex-wrap gap-2">
+              {suggestions.map((suggestion, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleSuggestionClick(suggestion)}
+                  disabled={generating}
+                  className="px-4 py-2 glass border border-purple-500/30 hover:border-purple-500 text-purple-200 hover:text-white text-sm font-medium rounded-full transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
