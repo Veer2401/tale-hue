@@ -47,15 +47,15 @@ export default function CreateStory() {
       if (data.success && data.imageDescription) {
         console.log('Enhanced prompt:', data.imageDescription);
         
-        // Generate image using Pollinations AI with turbo model for SPEED
-        const enhancedPrompt = encodeURIComponent(data.imageDescription);
+        // Use Flux model via Pollinations for sharp, high-quality images
+        const enhancedPrompt = encodeURIComponent(data.imageDescription + ", ultra detailed, sharp focus, high quality, professional");
         
-        // Use turbo model for 3-5x faster generation with good quality
-        const imageUrl = `https://image.pollinations.ai/prompt/${enhancedPrompt}?width=1024&height=1024&nologo=true&model=turbo&enhance=true&seed=${Date.now()}`;
+        // Flux model: Good balance of quality and speed
+        const imageUrl = `https://image.pollinations.ai/prompt/${enhancedPrompt}?width=1024&height=1024&nologo=true&model=flux&seed=${Date.now()}`;
         
-        console.log('Fetching image from:', imageUrl);
+        console.log('Fetching image from Pollinations:', imageUrl);
         
-        // Fetch and use the image directly (no canvas processing = faster)
+        // Fetch and use the image directly
         const imageResponse = await fetch(imageUrl);
         
         if (!imageResponse.ok) {
@@ -74,7 +74,7 @@ export default function CreateStory() {
         setPreviewImage(previewURL);
         setImageBlob(imageBlob);
       } else {
-        throw new Error('Failed to generate image description');
+        throw new Error('Failed to generate image');
       }
     } catch (error) {
       console.error('Error generating image:', error);

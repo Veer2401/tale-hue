@@ -20,6 +20,13 @@ service cloud.firestore {
       allow update, delete: if request.auth != null && request.auth.uid == resource.data.userID;
     }
     
+    // Posts collection - authenticated users can create, only author can update/delete
+    match /posts/{postId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userID;
+    }
+    
     // Likes collection - authenticated users can like
     match /likes/{likeId} {
       allow read: if true;
