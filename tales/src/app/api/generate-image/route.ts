@@ -13,51 +13,70 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
 
-    console.log('Generating image with OpenRouter for:', prompt);
+    console.log('Generating image for:', prompt);
 
-    // First, enhance the prompt using Gemini
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.0-flash-exp',
-      generationConfig: {
-        temperature: 1.2,
-        topP: 0.95,
-        topK: 40,
-        maxOutputTokens: 500,
-      }
-    });
+    // Check if Gemini API key is available
+    if (!process.env.GEMINI_API_KEY) {
+      console.warn('GEMINI_API_KEY not found, using basic prompt');
+      // Use the original prompt with enhancements
+      const basicEnhancedPrompt = `${prompt}, photorealistic, 8K, ultra detailed, sharp focus, professional photography, vivid colors`;
+      return NextResponse.json({ 
+        success: true, 
+        imageDescription: basicEnhancedPrompt,
+        originalPrompt: prompt
+      });
+    }
 
-    // Generate an ultra-detailed, creative image prompt
-    const result = await model.generateContent([
-      {
-        text: `You are a professional image prompt engineer. Create a SHORT, PRECISE prompt for "${prompt}".
+    try {
+      // First, enhance the prompt using Gemini
+      const model = genAI.getGenerativeModel({ 
+        model: 'gemini-2.0-flash-exp',
+        generationConfig: {
+          temperature: 1.2,
+          topP: 0.95,
+          topK: 40,
+          maxOutputTokens: 500,
+        }
+      });
+
+      // Generate a concise, high-quality image prompt
+      const result = await model.generateContent([
+        {
+          text: `Create a SHORT, vivid image prompt for: "${prompt}"
 
 RULES:
-1. Keep it 1-2 sentences MAX
-2. Start with the MAIN SUBJECT clearly
-3. ALWAYS include: "ultra sharp, highly detailed, professional photography, 8K, crisp focus"
-4. Use simple, direct language
-5. Avoid: blur, soft, dreamy, ethereal, bokeh, shallow depth of field
-6. Specify exact colors if relevant
+- Max 20 words
+- Start with main subject
+- Add: photorealistic, 8K, ultra detailed, sharp focus
+- Specify lighting and colors
+- NO: blur, soft, bokeh, abstract
 
-Example format: "[Main subject], ultra sharp, highly detailed, professional photography, 8K, crisp focus, [specific lighting], [exact colors], [style]"
+Format: [subject], photorealistic, 8K, ultra detailed, sharp focus, [lighting], [colors]
 
-Generate ONLY the prompt, nothing else:`
-      }
-    ]);
+Prompt only:`
+        }
+      ]);
 
-    const response = result.response;
-    const enhancedPrompt = response.text().trim();
+      const response = result.response;
+      const enhancedPrompt = response.text().trim();
 
-    console.log('Enhanced prompt:', enhancedPrompt);
+      console.log('Enhanced prompt:', enhancedPrompt);
 
-    // Return the enhanced prompt for the frontend to generate the image
-    // Using Pollinations AI (free, fast, reliable)
-    // Note: OpenRouter doesn't have google/gemini-2.0-flash-exp:image-generation model available
-    return NextResponse.json({ 
-      success: true, 
-      imageDescription: enhancedPrompt,
-      originalPrompt: prompt
-    });
+      return NextResponse.json({ 
+        success: true, 
+        imageDescription: enhancedPrompt,
+        originalPrompt: prompt
+      });
+    } catch (geminiError: any) {
+      console.error('Gemini API error:', geminiError);
+      // Fallback to basic enhancement if Gemini fails
+      const basicEnhancedPrompt = `${prompt}, photorealistic, 8K, ultra detailed, sharp focus, professional photography, vivid colors`;
+      return NextResponse.json({ 
+        success: true, 
+        imageDescription: basicEnhancedPrompt,
+        originalPrompt: prompt
+      });
+    }
 
   } catch (error: any) {
     console.error('Error generating image:', error);

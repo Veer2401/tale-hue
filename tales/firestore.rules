@@ -7,10 +7,17 @@ service cloud.firestore {
       allow write: if request.auth != null && request.auth.uid == userId;
     }
     
-    // Profiles collection - only user can write their own profile
-    match /profiles/{userId} {
+    // Profiles collection - allow all reads, only user can write their own profile
+    match /profiles/{profileId} {
       allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && (
+        // User can update their own profile
+        request.auth.uid == resource.data.userID ||
+        // OR user can update followers/following arrays (for follow/unfollow)
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followers', 'following']))
+      );
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userID;
     }
     
     // Stories collection - authenticated users can create, only author can update/delete
@@ -20,21 +27,23 @@ service cloud.firestore {
       allow update, delete: if request.auth != null && request.auth.uid == resource.data.userID;
     }
     
-    // Posts collection - authenticated users can create, only author can update/delete
+    // Posts collection - anyone can read, authenticated users can create, only author can update/delete
     match /posts/{postId} {
       allow read: if true;
       allow create: if request.auth != null;
-      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userID;
-    }
-    
-    // Likes collection - authenticated users can like
-    match /likes/{likeId} {
-      allow read: if true;
-      allow create: if request.auth != null;
+      allow update: if request.auth != null;
       allow delete: if request.auth != null && request.auth.uid == resource.data.userID;
     }
     
-    // Comments collection - authenticated users can comment
+    // Likes collection - anyone can read, authenticated users can create/delete their own likes
+    match /likes/{likeId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow delete: if request.auth != null;
+      allow update: if false; // Likes shouldn't be updated
+    }
+    
+    // Comments collection - anyone can read, authenticated users can create/update/delete their own comments
     match /comments/{commentId} {
       allow read: if true;
       allow create: if request.auth != null;

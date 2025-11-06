@@ -158,7 +158,7 @@ export default function Profile() {
                 <div className="w-16 h-16 mx-auto mb-2 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center border-4 border-white/30 shadow-xl">
                   <User size={32} className="text-white" />
                 </div>
-                <h2 className="text-2xl font-black mb-1 neon-text">Your Profile Awaits 🎨</h2>
+                <h2 className="text-2xl font-black mb-1 neon-text">Your Profile Awaits</h2>
               </div>
             </div>
           </div>
@@ -178,7 +178,7 @@ export default function Profile() {
                   </div>
                   <h4 className="font-black text-white mb-1 text-sm">Create AI Stories</h4>
                   <p className="text-xs text-purple-200">
-                    Transform vibes into visual masterpieces 🎨
+                    Transform vibes into visual masterpieces
                   </p>
                 </div>
 
@@ -360,7 +360,7 @@ export default function Profile() {
 
         {/* User Stories Grid */}
         <div className="border-t border-white/10 pt-8">
-          <h3 className="text-2xl font-black text-white mb-6 neon-text">Your Stories 🎨</h3>
+          <h3 className="text-2xl font-black text-white mb-6 neon-text">Your Stories</h3>
           {userStories.length === 0 ? (
             <p className="text-zinc-500 text-center py-8">No stories yet. Create your first one!</p>
           ) : (

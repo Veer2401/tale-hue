@@ -47,19 +47,30 @@ export default function CreateStory() {
       if (data.success && data.imageDescription) {
         console.log('Enhanced prompt:', data.imageDescription);
         
-        // Use Flux model via Pollinations for sharp, high-quality images
-        const enhancedPrompt = encodeURIComponent(data.imageDescription + ", ultra detailed, sharp focus, high quality, professional");
+        // Use Flux Pro model for highest quality and faster generation
+        const enhancedPrompt = encodeURIComponent(
+          data.imageDescription + 
+          ", masterpiece, best quality, photorealistic, 8K UHD, ultra detailed, sharp focus, vivid colors, professional photography"
+        );
         
-        // Flux model: Good balance of quality and speed
-        const imageUrl = `https://image.pollinations.ai/prompt/${enhancedPrompt}?width=1024&height=1024&nologo=true&model=flux&seed=${Date.now()}`;
+        // Flux Pro model: Higher quality with optimized speed
+        // Using higher resolution for better quality
+        const imageUrl = `https://image.pollinations.ai/prompt/${enhancedPrompt}?width=1536&height=1536&nologo=true&model=flux-pro&enhance=true&seed=${Date.now()}`;
         
-        console.log('Fetching image from Pollinations:', imageUrl);
+        console.log('Fetching high-quality image from Pollinations...');
         
-        // Fetch and use the image directly
-        const imageResponse = await fetch(imageUrl);
+        // Fetch image with timeout for faster failure detection
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+        
+        const imageResponse = await fetch(imageUrl, { 
+          signal: controller.signal,
+          cache: 'no-store'
+        });
+        clearTimeout(timeoutId);
         
         if (!imageResponse.ok) {
-          throw new Error(`Image fetch failed: ${imageResponse.status}`);
+          throw new Error(`Image generation failed: ${imageResponse.status}`);
         }
         
         const imageBlob = await imageResponse.blob();
@@ -68,7 +79,7 @@ export default function CreateStory() {
           throw new Error('Generated image is empty');
         }
         
-        console.log('Image loaded successfully, size:', imageBlob.size, 'bytes');
+        console.log('High-quality image loaded successfully, size:', imageBlob.size, 'bytes');
         
         const previewURL = URL.createObjectURL(imageBlob);
         setPreviewImage(previewURL);
@@ -107,53 +118,30 @@ export default function CreateStory() {
     try {
       console.log('Starting upload process...');
       
-      // Create a compressed version of the image
-      const img = new Image();
-      const imgUrl = URL.createObjectURL(imageBlob);
+      // Convert image blob directly to base64 without compression
+      const reader = new FileReader();
       
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-        img.src = imgUrl;
+      const base64Image = await new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => {
+          if (typeof reader.result === 'string') {
+            resolve(reader.result);
+          } else {
+            reject(new Error('Failed to convert image to base64'));
+          }
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(imageBlob);
       });
       
-      // Create canvas and compress image
-      const canvas = document.createElement('canvas');
-      const maxSize = 800; // Reduce size for Firestore limits
-      let width = img.width;
-      let height = img.height;
-      
-      // Scale down if needed
-      if (width > maxSize || height > maxSize) {
-        if (width > height) {
-          height = (height / width) * maxSize;
-          width = maxSize;
-        } else {
-          width = (width / height) * maxSize;
-          height = maxSize;
-        }
-      }
-      
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(img, 0, 0, width, height);
-      }
-      
-      // Convert to base64 with lower quality (0.6 = 60% quality)
-      const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
-      console.log('Image compressed, size:', compressedBase64.length, 'bytes');
-      
-      URL.revokeObjectURL(imgUrl);
+      console.log('Image converted to base64, size:', base64Image.length, 'bytes');
 
-      // Create story document in Firestore with compressed image
+      // Create story document in Firestore with original quality image
       const storyId = `story_${Date.now()}`;
       const storyData = {
         storyID: storyId,
         userID: user.uid,
         content: content,
-        imageURL: compressedBase64,
+        imageURL: base64Image,
         likesCount: 0,
         commentsCount: 0,
         createdAt: new Date()
@@ -238,7 +226,7 @@ export default function CreateStory() {
                 className="w-full aspect-square object-cover"
               />
               <div className="absolute top-4 right-4 px-4 py-2 bg-black/60 backdrop-blur-md rounded-full">
-                <p className="text-xs text-white font-bold">🎨 AI Generated</p>
+                <p className="text-xs text-white font-bold">AI Generated</p>
               </div>
             </div>
             <p className="text-xs text-purple-300 text-center mt-3 font-medium">
@@ -271,7 +259,7 @@ export default function CreateStory() {
             ) : (
               <>
                 <ImageIcon size={28} />
-                {user ? 'Generate My Vibe 🎨' : 'Sign In to Create 🚀'}
+                {user ? 'Generate My Vibe' : 'Sign In to Create 🚀'}
               </>
             )}
           </button>

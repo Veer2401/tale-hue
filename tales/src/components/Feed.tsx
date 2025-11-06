@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, increment, addDoc, serverTimestamp, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { Story, Profile } from '@/types';
-import { Heart, MessageCircle, Share2, X, Send, PlusCircle } from 'lucide-react';
+import { Heart, MessageCircle, Share2, X, Send, PlusCircle, Edit2, Trash2, Check } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface StoryWithProfile extends Story {
@@ -37,6 +37,9 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
   const [showSignInModal, setShowSignInModal] = useState(false);
   const [signInAction, setSignInAction] = useState<'like' | 'comment'>('like');
   const [signingIn, setSigningIn] = useState(false);
+  const [detailStory, setDetailStory] = useState<StoryWithProfile | null>(null);
+  const [editingComment, setEditingComment] = useState<string | null>(null);
+  const [editedCommentText, setEditedCommentText] = useState('');
 
   useEffect(() => {
     const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
@@ -123,14 +126,25 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
           console.log('Found like document, deleting...');
           await deleteDoc(doc(db, 'likes', likesSnapshot.docs[0].id));
           
-          // Update story likes count
+          // Update story likes count (ensure it doesn't go below 0)
           const storyQuery = query(collection(db, 'posts'), where('storyID', '==', storyId));
           const storySnapshot = await getDocs(storyQuery);
           if (!storySnapshot.empty) {
             const storyDocRef = doc(db, 'posts', storySnapshot.docs[0].id);
-            await updateDoc(storyDocRef, {
-              likesCount: increment(-1)
-            });
+            const currentData = storySnapshot.docs[0].data();
+            const currentLikes = currentData.likesCount || 0;
+            
+            // Only decrement if count is greater than 0
+            if (currentLikes > 0) {
+              await updateDoc(storyDocRef, {
+                likesCount: increment(-1)
+              });
+            } else {
+              // Ensure it's set to 0 if somehow it was negative
+              await updateDoc(storyDocRef, {
+                likesCount: 0
+              });
+            }
           }
           console.log('Unlike completed');
         }
@@ -177,13 +191,19 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
     }
   };
 
-  const openComments = async (story: StoryWithProfile) => {
-    if (!user) {
-      setSignInAction('comment');
-      setShowSignInModal(true);
-      return;
-    }
-    
+  const openStoryDetail = (story: StoryWithProfile) => {
+    setDetailStory(story);
+    loadCommentsForStory(story);
+  };
+
+  const closeStoryDetail = () => {
+    setDetailStory(null);
+    setSelectedStory(null);
+    setComments([]);
+    setNewComment('');
+  };
+
+  const loadCommentsForStory = async (story: StoryWithProfile) => {
     if (!story || !story.storyID) return;
     
     setSelectedStory(story);
@@ -217,10 +237,24 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
     });
   };
 
-  const closeComments = () => {
-    setSelectedStory(null);
-    setComments([]);
-    setNewComment('');
+  const openComments = async (story: StoryWithProfile) => {
+    if (!user) {
+      setSignInAction('comment');
+      setShowSignInModal(true);
+      return;
+    }
+    
+    openStoryDetail(story);
+  };
+
+  const handleQuickLike = async (e: React.MouseEvent, storyId: string) => {
+    e.stopPropagation(); // Prevent opening detail view
+    await handleLike(storyId);
+  };
+
+  const handleQuickComment = async (e: React.MouseEvent, story: StoryWithProfile) => {
+    e.stopPropagation(); // Prevent opening detail view
+    await openComments(story);
   };
 
   const handleAddComment = async () => {
@@ -253,6 +287,53 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
     }
   };
 
+  const handleEditComment = (commentId: string, currentContent: string) => {
+    setEditingComment(commentId);
+    setEditedCommentText(currentContent);
+  };
+
+  const handleSaveComment = async (commentId: string) => {
+    if (!editedCommentText.trim()) return;
+    
+    try {
+      const commentRef = doc(db, 'comments', commentId);
+      await updateDoc(commentRef, {
+        content: editedCommentText.trim()
+      });
+      setEditingComment(null);
+      setEditedCommentText('');
+    } catch (error) {
+      console.error('Error updating comment:', error);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!selectedStory || !selectedStory.storyID) return;
+    
+    try {
+      // Delete the comment
+      await deleteDoc(doc(db, 'comments', commentId));
+
+      // Update comments count
+      const storyQuery = query(collection(db, 'posts'), where('storyID', '==', selectedStory.storyID));
+      const storySnapshot = await getDocs(storyQuery);
+      if (!storySnapshot.empty) {
+        const storyDocRef = doc(db, 'posts', storySnapshot.docs[0].id);
+        const currentData = storySnapshot.docs[0].data();
+        const currentComments = currentData.commentsCount || 0;
+        
+        // Only decrement if count is greater than 0
+        if (currentComments > 0) {
+          await updateDoc(storyDocRef, {
+            commentsCount: increment(-1)
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -262,7 +343,7 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-6 space-y-6">
+    <div className="max-w-7xl mx-auto p-6">
       {stories.length === 0 ? (
         <div className="text-center py-20">
           <div className="max-w-md mx-auto glass p-12 rounded-3xl border border-purple-500/20">
@@ -270,7 +351,7 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
               <PlusCircle size={56} className="text-white" />
             </div>
             <h3 className="text-3xl font-black text-white mb-4 neon-text">
-              No stories yet! 🎨
+              No stories yet!
             </h3>
             <p className="text-purple-200 mb-8 text-lg">
               Be the first to drop some fire content! ✨
@@ -285,146 +366,250 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
           </div>
         </div>
       ) : (
-        stories.map((story) => (
-          <div
-            key={story.storyID}
-            className="glass rounded-3xl shadow-2xl overflow-hidden border border-white/10 hover:border-purple-500/50 transition-all duration-300 transform hover:scale-[1.02]"
-          >
-            {/* User Info */}
-            <div className="p-5 flex items-center gap-4 bg-gradient-to-r from-purple-900/20 via-pink-900/20 to-orange-900/20 border-b border-white/10">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-600 via-pink-600 to-orange-500 flex items-center justify-center text-white font-black text-lg shadow-lg ring-2 ring-white/20">
-                {story.profile?.displayName.charAt(0).toUpperCase() || 'A'}
-              </div>
-              <div>
-                <p className="font-black text-white text-lg">
-                  {story.profile?.displayName || 'Anonymous'}
-                </p>
-              </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {stories.map((story) => (
+            <div
+              key={story.storyID}
+              onClick={() => openStoryDetail(story)}
+              className="glass rounded-2xl shadow-xl overflow-hidden border border-white/10 hover:border-purple-500/50 transition-all duration-300 transform hover:scale-105 cursor-pointer group"
+            >
+              {/* Story Image */}
+              {story.imageURL && (
+                <div className="relative aspect-square overflow-hidden">
+                  <img
+                    src={story.imageURL}
+                    alt={story.content}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+                  
+                  {/* User Info Overlay */}
+                  <div className="absolute top-3 left-3 flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 via-pink-600 to-orange-500 flex items-center justify-center text-white font-black text-xs shadow-lg ring-2 ring-white/30">
+                      {story.profile?.displayName.charAt(0).toUpperCase() || 'A'}
+                    </div>
+                    <p className="font-bold text-white text-sm drop-shadow-lg">
+                      {story.profile?.displayName || 'Anonymous'}
+                    </p>
+                  </div>
+
+                  {/* Quick Actions Overlay */}
+                  <div className="absolute bottom-3 left-3 right-3">
+                    <p className="text-white text-sm mb-3 leading-tight font-medium line-clamp-2 drop-shadow-lg">
+                      {story.content}
+                    </p>
+                    <div className="flex items-center gap-4">
+                      <button
+                        onClick={(e) => handleQuickLike(e, story.storyID)}
+                        className={`flex items-center gap-1.5 transition-all duration-300 ${
+                          userLikes.has(story.storyID)
+                            ? 'text-pink-400' 
+                            : 'text-white/80 hover:text-pink-400'
+                        }`}
+                      >
+                        <Heart size={18} fill={userLikes.has(story.storyID) ? 'currentColor' : 'none'} strokeWidth={2.5} />
+                        <span className="font-bold text-sm">{story.likesCount || 0}</span>
+                      </button>
+                      <button 
+                        onClick={(e) => handleQuickComment(e, story)}
+                        className="flex items-center gap-1.5 text-white/80 hover:text-cyan-400 transition-all duration-300"
+                      >
+                        <MessageCircle size={18} strokeWidth={2.5} />
+                        <span className="font-bold text-sm">{story.commentsCount || 0}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-
-            {/* Story Image */}
-            {story.imageURL && (
-              <div className="relative group">
-                <img
-                  src={story.imageURL}
-                  alt={story.content}
-                  className="w-full aspect-square object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-              </div>
-            )}
-
-            {/* Story Content */}
-            <div className="p-6 bg-gradient-to-br from-zinc-900/80 to-zinc-950/80">
-              <p className="text-white text-lg mb-3 leading-relaxed font-medium">
-                {story.content}
-              </p>
-              
-              {/* Date */}
-              <p className="text-sm text-purple-300 mb-5 font-bold">
-                {story.createdAt?.toDate?.()?.toLocaleDateString() || 'Just now'} ✨
-              </p>
-
-              {/* Actions */}
-              <div className="flex items-center gap-6">
-                <button
-                  onClick={() => handleLike(story.storyID)}
-                  className={`group flex items-center gap-3 transition-all duration-300 transform hover:scale-110 ${
-                    userLikes.has(story.storyID)
-                      ? 'text-pink-500' 
-                      : 'text-zinc-400 hover:text-pink-500'
-                  }`}
-                >
-                  <div className={`p-3 rounded-full ${userLikes.has(story.storyID) ? 'bg-pink-500/20' : 'bg-white/5 group-hover:bg-pink-500/20'} transition-all`}>
-                    <Heart size={22} fill={userLikes.has(story.storyID) ? 'currentColor' : 'none'} strokeWidth={2.5} />
-                  </div>
-                  <span className="font-bold text-lg">{story.likesCount || 0}</span>
-                </button>
-                <button 
-                  onClick={() => openComments(story)}
-                  className="group flex items-center gap-3 text-zinc-400 hover:text-cyan-400 transition-all duration-300 transform hover:scale-110"
-                >
-                  <div className="p-3 rounded-full bg-white/5 group-hover:bg-cyan-400/20 transition-all">
-                    <MessageCircle size={22} strokeWidth={2.5} />
-                  </div>
-                  <span className="font-bold text-lg">{story.commentsCount || 0}</span>
-                </button>
-                <button className="group flex items-center gap-3 text-zinc-400 hover:text-green-400 transition-all duration-300 transform hover:scale-110">
-                  <div className="p-3 rounded-full bg-white/5 group-hover:bg-green-400/20 transition-all">
-                    <Share2 size={22} strokeWidth={2.5} />
-                  </div>
-                </button>
-              </div>
-            </div>
-          </div>
-        ))
+          ))}
+        </div>
       )}
 
-      {/* Comments Modal */}
-      {selectedStory && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
-          <div className="glass rounded-3xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl border border-purple-500/30">
-            {/* Header */}
-            <div className="p-6 border-b border-white/10 flex items-center justify-between bg-gradient-to-r from-purple-900/30 via-pink-900/30 to-orange-900/30">
-              <h3 className="text-2xl font-black text-white">Comments 💬</h3>
+      {/* Story Detail Modal */}
+      {detailStory && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-lg flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
+          <div className="glass rounded-3xl max-w-5xl w-full max-h-[90vh] flex flex-col md:flex-row shadow-2xl border border-purple-500/30 overflow-hidden">
+            {/* Left: Image Section */}
+            <div className="md:w-1/2 bg-black flex items-center justify-center relative">
               <button
-                onClick={closeComments}
-                className="p-3 hover:bg-white/10 rounded-full transition-all duration-300 transform hover:rotate-90"
+                onClick={closeStoryDetail}
+                className="absolute top-4 right-4 p-3 bg-black/60 hover:bg-black/80 rounded-full transition-all duration-300 transform hover:rotate-90 z-10 backdrop-blur-sm"
               >
-                <X size={24} className="text-purple-300" />
+                <X size={24} className="text-white" />
               </button>
-            </div>
-
-            {/* Comments List */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {comments.length === 0 ? (
-                <div className="text-center py-12">
-                  <MessageCircle size={64} className="mx-auto mb-4 text-purple-400/50" />
-                  <p className="text-purple-300/70 text-lg">No comments yet. Start the convo! 🔥</p>
-                </div>
-              ) : (
-                comments.map((comment) => (
-                  <div key={comment.id} className="flex gap-4 p-4 rounded-2xl bg-white/5 hover:bg-white/10 transition-all border border-white/5">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 via-blue-500 to-purple-500 flex items-center justify-center text-white text-sm font-black shrink-0 shadow-lg">
-                      {comment.displayName?.charAt(0).toUpperCase() || 'A'}
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-black text-sm text-white">
-                        {comment.displayName || 'Anonymous'}
-                      </p>
-                      <p className="text-purple-100 mt-2 leading-relaxed">{comment.content}</p>
-                      <p className="text-xs text-purple-400/70 mt-2">
-                        {comment.createdAt?.toDate?.()?.toLocaleString() || 'Just now'}
-                      </p>
-                    </div>
-                  </div>
-                ))
+              {detailStory.imageURL && (
+                <img
+                  src={detailStory.imageURL}
+                  alt={detailStory.content}
+                  className="w-full h-full object-contain max-h-[90vh]"
+                />
               )}
             </div>
 
-            {/* Add Comment */}
-            {user && (
-              <div className="p-6 border-t border-white/10 bg-gradient-to-r from-purple-900/20 via-pink-900/20 to-orange-900/20">
-                <div className="flex gap-3">
-                  <input
-                    type="text"
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleAddComment()}
-                    placeholder="Drop your thoughts..."
-                    className="flex-1 px-6 py-4 glass rounded-full text-white placeholder-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium border border-white/10"
-                    disabled={submitting}
-                  />
+            {/* Right: Details & Comments Section */}
+            <div className="md:w-1/2 flex flex-col bg-gradient-to-br from-zinc-900/95 to-zinc-950/95 backdrop-blur-xl">
+              {/* User Info Header */}
+              <div className="p-6 border-b border-white/10 bg-gradient-to-r from-purple-900/20 via-pink-900/20 to-orange-900/20">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-600 via-pink-600 to-orange-500 flex items-center justify-center text-white font-black text-lg shadow-lg ring-2 ring-white/20">
+                    {detailStory.profile?.displayName.charAt(0).toUpperCase() || 'A'}
+                  </div>
+                  <div>
+                    <p className="font-black text-white text-lg">
+                      {detailStory.profile?.displayName || 'Anonymous'}
+                    </p>
+                    <p className="text-sm text-purple-300">
+                      {detailStory.createdAt?.toDate?.()?.toLocaleDateString() || 'Just now'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Story Content */}
+              <div className="p-6 border-b border-white/10">
+                <p className="text-white text-lg leading-relaxed font-medium mb-4">
+                  {detailStory.content}
+                </p>
+                
+                {/* Actions */}
+                <div className="flex items-center gap-6">
                   <button
-                    onClick={handleAddComment}
-                    disabled={!newComment.trim() || submitting}
-                    className="px-8 py-4 bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 text-white rounded-full hover:shadow-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-black neon-glow"
+                    onClick={(e) => handleQuickLike(e, detailStory.storyID)}
+                    className={`group flex items-center gap-3 transition-all duration-300 transform hover:scale-110 ${
+                      userLikes.has(detailStory.storyID)
+                        ? 'text-pink-500' 
+                        : 'text-zinc-400 hover:text-pink-500'
+                    }`}
                   >
-                    <Send size={20} />
+                    <div className={`p-3 rounded-full ${userLikes.has(detailStory.storyID) ? 'bg-pink-500/20' : 'bg-white/5 group-hover:bg-pink-500/20'} transition-all`}>
+                      <Heart size={22} fill={userLikes.has(detailStory.storyID) ? 'currentColor' : 'none'} strokeWidth={2.5} />
+                    </div>
+                    <span className="font-bold text-lg">{detailStory.likesCount || 0}</span>
+                  </button>
+                  <div className="flex items-center gap-3 text-cyan-400">
+                    <div className="p-3 rounded-full bg-cyan-400/20">
+                      <MessageCircle size={22} strokeWidth={2.5} />
+                    </div>
+                    <span className="font-bold text-lg">{detailStory.commentsCount || 0}</span>
+                  </div>
+                  <button className="group flex items-center gap-3 text-zinc-400 hover:text-green-400 transition-all duration-300 transform hover:scale-110">
+                    <div className="p-3 rounded-full bg-white/5 group-hover:bg-green-400/20 transition-all">
+                      <Share2 size={22} strokeWidth={2.5} />
+                    </div>
                   </button>
                 </div>
               </div>
-            )}
+
+              {/* Comments List */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                <h3 className="text-xl font-black text-white mb-4">Comments 💬</h3>
+                {comments.length === 0 ? (
+                  <div className="text-center py-12">
+                    <MessageCircle size={48} className="mx-auto mb-3 text-purple-400/50" />
+                    <p className="text-purple-300/70">No comments yet. Start the convo! 🔥</p>
+                  </div>
+                ) : (
+                  comments.map((comment) => (
+                    <div key={comment.id} className="flex gap-3 p-4 rounded-2xl bg-white/5 hover:bg-white/10 transition-all border border-white/5 group">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 via-blue-500 to-purple-500 flex items-center justify-center text-white text-sm font-black shrink-0 shadow-lg">
+                        {comment.displayName?.charAt(0).toUpperCase() || 'A'}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-start justify-between">
+                          <p className="font-black text-sm text-white">
+                            {comment.displayName || 'Anonymous'}
+                          </p>
+                          {/* Edit/Delete buttons - only show for comment owner */}
+                          {user && comment.userID === user.uid && (
+                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              {editingComment === comment.id ? (
+                                <button
+                                  onClick={() => handleSaveComment(comment.id)}
+                                  className="p-1.5 hover:bg-green-500/20 rounded-lg transition-all"
+                                  title="Save"
+                                >
+                                  <Check size={16} className="text-green-400" />
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleEditComment(comment.id, comment.content)}
+                                  className="p-1.5 hover:bg-blue-500/20 rounded-lg transition-all"
+                                  title="Edit"
+                                >
+                                  <Edit2 size={16} className="text-blue-400" />
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleDeleteComment(comment.id)}
+                                className="p-1.5 hover:bg-red-500/20 rounded-lg transition-all"
+                                title="Delete"
+                              >
+                                <Trash2 size={16} className="text-red-400" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        {editingComment === comment.id ? (
+                          <input
+                            type="text"
+                            value={editedCommentText}
+                            onChange={(e) => setEditedCommentText(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && handleSaveComment(comment.id)}
+                            className="w-full mt-1.5 px-3 py-2 glass rounded-lg text-white placeholder-purple-300/50 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium border border-white/10 text-sm"
+                            autoFocus
+                          />
+                        ) : (
+                          <p className="text-purple-100 mt-1.5 leading-relaxed text-sm">{comment.content}</p>
+                        )}
+                        <p className="text-xs text-purple-400/70 mt-1.5">
+                          {comment.createdAt?.toDate?.()?.toLocaleString() || 'Just now'}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Add Comment */}
+              {user ? (
+                <div className="p-6 border-t border-white/10 bg-gradient-to-r from-purple-900/20 via-pink-900/20 to-orange-900/20">
+                  <div className="flex gap-3">
+                    <input
+                      type="text"
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleAddComment()}
+                      placeholder="Drop your thoughts..."
+                      className="flex-1 px-6 py-4 glass rounded-full text-white placeholder-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium border border-white/10"
+                      disabled={submitting}
+                    />
+                    <button
+                      onClick={handleAddComment}
+                      disabled={!newComment.trim() || submitting}
+                      className="px-8 py-4 bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 text-white rounded-full hover:shadow-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-black neon-glow"
+                    >
+                      <Send size={20} />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-6 border-t border-white/10 bg-gradient-to-r from-purple-900/20 via-pink-900/20 to-orange-900/20 text-center">
+                  <button
+                    onClick={async () => {
+                      try {
+                        await signInWithGoogle();
+                      } catch (error) {
+                        console.error('Sign-in error:', error);
+                      }
+                    }}
+                    className="px-8 py-4 bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 text-white rounded-full hover:shadow-2xl transition-all font-black neon-glow"
+                  >
+                    Sign In to Comment 💬
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

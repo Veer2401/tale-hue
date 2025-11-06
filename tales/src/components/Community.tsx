@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, arrayUnion, arrayRemove, query, where } from 'firebase/firestore';
 import { Profile } from '@/types';
 import { UserPlus, UserCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,29 +28,48 @@ export default function Community() {
   const handleFollow = async (targetUserId: string) => {
     if (!user || !profile) return;
 
-    const isFollowing = profile.following.includes(targetUserId);
-    const userProfileRef = doc(db, 'profiles', user.uid);
-    const targetProfileRef = doc(db, 'profiles', targetUserId);
+    try {
+      const isFollowing = profile.following.includes(targetUserId);
+      
+      // Find the current user's profile document
+      const userProfileQuery = query(collection(db, 'profiles'), where('userID', '==', user.uid));
+      const userProfileSnapshot = await getDocs(userProfileQuery);
+      
+      // Find the target user's profile document
+      const targetProfileQuery = query(collection(db, 'profiles'), where('userID', '==', targetUserId));
+      const targetProfileSnapshot = await getDocs(targetProfileQuery);
+      
+      if (userProfileSnapshot.empty || targetProfileSnapshot.empty) {
+        console.error('Profile documents not found');
+        return;
+      }
+      
+      const userProfileRef = doc(db, 'profiles', userProfileSnapshot.docs[0].id);
+      const targetProfileRef = doc(db, 'profiles', targetProfileSnapshot.docs[0].id);
 
-    if (isFollowing) {
-      // Unfollow
-      await updateDoc(userProfileRef, {
-        following: arrayRemove(targetUserId)
-      });
-      await updateDoc(targetProfileRef, {
-        followers: arrayRemove(user.uid)
-      });
-    } else {
-      // Follow
-      await updateDoc(userProfileRef, {
-        following: arrayUnion(targetUserId)
-      });
-      await updateDoc(targetProfileRef, {
-        followers: arrayUnion(user.uid)
-      });
+      if (isFollowing) {
+        // Unfollow
+        await updateDoc(userProfileRef, {
+          following: arrayRemove(targetUserId)
+        });
+        await updateDoc(targetProfileRef, {
+          followers: arrayRemove(user.uid)
+        });
+      } else {
+        // Follow
+        await updateDoc(userProfileRef, {
+          following: arrayUnion(targetUserId)
+        });
+        await updateDoc(targetProfileRef, {
+          followers: arrayUnion(user.uid)
+        });
+      }
+
+      // Refresh the user list to show updated state
+      fetchUsers();
+    } catch (error) {
+      console.error('Error following/unfollowing user:', error);
     }
-
-    fetchUsers();
   };
 
   if (loading) {
