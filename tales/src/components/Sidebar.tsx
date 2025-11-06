@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { Home, PlusSquare, User, Users, LogOut, LogIn } from 'lucide-react';
+import { Home, PlusSquare, UserCircle, Globe, LogOut, LogIn } from 'lucide-react';
 import { useState } from 'react';
 
 interface SidebarProps {
@@ -27,18 +27,50 @@ export default function Sidebar({ onNavigate, currentView }: SidebarProps) {
   const menuItems = [
     { icon: Home, label: 'Feed', view: 'feed' as const },
     { icon: PlusSquare, label: 'Create Story', view: 'create' as const },
-    { icon: Users, label: 'Community', view: 'followers' as const },
-    { icon: User, label: 'Profile', view: 'profile' as const },
+    { icon: Globe, label: 'Community', view: 'followers' as const },
+    { icon: UserCircle, label: 'Profile', view: 'profile' as const },
   ];
 
   return (
     <div className="fixed left-0 top-0 h-screen w-64 glass border-r border-white/10 flex flex-col backdrop-blur-xl bg-gradient-to-b from-zinc-900/95 via-zinc-900/90 to-zinc-950/95">
       {/* Logo */}
       <div className="p-6 border-b border-white/10">
-        <h1 className="text-3xl font-black gradient-text neon-text tracking-tight">
-          ✨ TaleHue
-        </h1>
-        <p className="text-xs text-purple-300/70 mt-1 font-medium">AI Stories • Vibe • Create</p>
+        <div className="relative group cursor-pointer">
+          {/* Outer glow rings */}
+          <div className="absolute -inset-2 bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 rounded-3xl blur-2xl opacity-20 group-hover:opacity-60 transition-all duration-1000 animate-pulse"></div>
+          <div className="absolute -inset-1 bg-gradient-to-r from-violet-600 via-fuchsia-600 to-rose-500 rounded-2xl blur-xl opacity-0 group-hover:opacity-40 transition-all duration-700"></div>
+          
+          {/* Main logo container - ultra dark */}
+          <div className="relative bg-gradient-to-br from-black via-zinc-950 to-black rounded-2xl p-6 border-2 border-zinc-800/50 group-hover:border-purple-500/60 transition-all duration-700 group-hover:scale-110 transform shadow-2xl group-hover:shadow-purple-900/50">
+            {/* Inner dark gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-purple-950/20 via-transparent to-pink-950/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+            
+            {/* Animated sparkle elements */}
+            <div className="absolute top-3 right-3 w-2 h-2 bg-purple-400 rounded-full opacity-0 group-hover:opacity-100 animate-ping shadow-lg shadow-purple-500"></div>
+            <div className="absolute bottom-3 left-3 w-1.5 h-1.5 bg-pink-400 rounded-full opacity-0 group-hover:opacity-100 animate-ping delay-75 shadow-lg shadow-pink-500"></div>
+            <div className="absolute top-1/2 left-2 w-1 h-1 bg-orange-400 rounded-full opacity-0 group-hover:opacity-100 animate-ping delay-150 shadow-lg shadow-orange-500"></div>
+            
+            {/* Logo text with intense gradient */}
+            <h1 className="relative text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-pink-300 to-orange-300 tracking-tighter text-center group-hover:from-purple-200 group-hover:via-pink-200 group-hover:to-orange-200 transition-all duration-700 drop-shadow-2xl animate-in fade-in slide-in-from-top-4 [text-shadow:_0_0_30px_rgb(168_85_247_/_50%)]">
+              TaleHue
+            </h1>
+            
+            {/* Multi-layered animated underlines */}
+            <div className="mt-3 space-y-1">
+              <div className="h-1 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 rounded-full opacity-70 group-hover:opacity-100 group-hover:h-1.5 transition-all duration-700 shadow-lg shadow-purple-500/50 animate-in slide-in-from-left"></div>
+              <div className="h-0.5 bg-gradient-to-r from-violet-400 via-fuchsia-400 to-rose-400 rounded-full opacity-0 group-hover:opacity-60 transition-all duration-700 delay-100 animate-in slide-in-from-right"></div>
+            </div>
+            
+            {/* Enhanced shimmer effect */}
+            <div className="absolute inset-0 rounded-2xl overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1500 ease-in-out"></div>
+            </div>
+            
+            {/* Corner accents */}
+            <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-purple-500/0 group-hover:border-purple-500/50 rounded-tl-2xl transition-all duration-700"></div>
+            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-pink-500/0 group-hover:border-pink-500/50 rounded-br-2xl transition-all duration-700"></div>
+          </div>
+        </div>
       </div>
 
       {/* Navigation */}

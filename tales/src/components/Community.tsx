@@ -20,7 +20,8 @@ export default function Community() {
     const snapshot = await getDocs(collection(db, 'profiles'));
     const usersData = snapshot.docs
       .map(doc => doc.data() as Profile)
-      .filter(p => p.userID !== user?.uid);
+      .filter(p => p.userID !== user?.uid)
+      .filter(p => p.displayName !== 'Veer Harischandrakar'); // Hide this specific account
     setUsers(usersData);
     setLoading(false);
   };

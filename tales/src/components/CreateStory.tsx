@@ -284,7 +284,7 @@ export default function CreateStory() {
           </div>
           <div>
             <h2 className="text-3xl font-black text-white neon-text">Create Your Vibe ✨</h2>
-            <p className="text-sm text-purple-300 font-medium">Drop your story in 150 chars max 🔥</p>
+            <p className="text-sm text-purple-300 font-medium">Post your story in 150 chars max 🔥</p>
           </div>
         </div>
 
@@ -403,7 +403,7 @@ export default function CreateStory() {
               ) : (
                 <>
                   <Send size={24} />
-                  Drop It! 🔥
+                  Post 🔥
                 </>
               )}
             </button>

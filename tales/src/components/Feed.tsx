@@ -364,7 +364,7 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
               No stories yet!
             </h3>
             <p className="text-purple-200 mb-8 text-lg">
-              Be the first to drop some fire content! ✨
+              Be the first to post some fire content! ✨
             </p>
             <button
               onClick={onNavigateToCreate}
@@ -590,7 +590,7 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleAddComment()}
-                      placeholder="Drop your thoughts..."
+                      placeholder="Post your thoughts..."
                       className="flex-1 px-6 py-4 glass rounded-full text-white placeholder-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium border border-white/10"
                       disabled={submitting}
                     />
@@ -645,7 +645,7 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
                 <p className="text-purple-200 text-lg">
                   {signInAction === 'like' 
                     ? 'Sign in to vibe with creators ✨'
-                    : 'Sign in to drop your thoughts �'}
+                    : 'Sign in to post your thoughts �'}
                 </p>
               </div>
             </div>
