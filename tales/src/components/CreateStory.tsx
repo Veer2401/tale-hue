@@ -133,6 +133,10 @@ export default function CreateStory() {
 
       const data = await response.json();
       
+      if (!response.ok) {
+        throw new Error(data.error || data.details || 'Failed to enhance prompt');
+      }
+      
       if (data.success && data.imageDescription) {
         console.log('Enhanced prompt:', data.imageDescription);
         
@@ -224,6 +228,10 @@ export default function CreateStory() {
       });
 
       const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || data.details || 'Failed to enhance prompt');
+      }
       
       if (data.success && data.imageDescription) {
         console.log('Enhanced prompt:', data.imageDescription);
