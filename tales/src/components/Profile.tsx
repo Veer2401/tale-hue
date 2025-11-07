@@ -2,12 +2,16 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
-import { Camera, Edit2, Save, Heart, MessageCircle, Trash2, X, Check, User, Sparkles, CheckCircle, XCircle } from 'lucide-react';
+import { Camera, Edit2, Save, Heart, MessageCircle, Trash2, X, Check, User, Sparkles, CheckCircle, XCircle, Plus } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, collection, query, where, getDocs, orderBy, deleteDoc } from 'firebase/firestore';
 import { Story } from '@/types';
 
-export default function Profile() {
+interface ProfileProps {
+  onNavigateToCreate?: () => void;
+}
+
+export default function Profile({ onNavigateToCreate }: ProfileProps) {
   const { user, profile, updateProfile, signInWithGoogle } = useAuth();
   const [editing, setEditing] = useState(false);
   const [displayName, setDisplayName] = useState('');
@@ -362,7 +366,19 @@ export default function Profile() {
         <div className="border-t border-white/10 pt-8">
           <h3 className="text-2xl font-black text-white mb-6 neon-text">Your Stories</h3>
           {userStories.length === 0 ? (
-            <p className="text-zinc-500 text-center py-8">No stories yet. Create your first one!</p>
+            <div className="text-center py-12">
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-purple-500 via-pink-600 to-orange-500 flex items-center justify-center shadow-2xl neon-glow">
+                <Sparkles className="text-white" size={40} />
+              </div>
+              <p className="text-zinc-400 text-lg mb-6 font-medium">No stories yet. Create your first one!</p>
+              <button
+                onClick={onNavigateToCreate}
+                className="px-8 py-4 bg-gradient-to-r from-purple-500 via-pink-600 to-orange-500 text-white font-black text-lg rounded-full hover:shadow-2xl transform hover:scale-105 transition-all flex items-center justify-center gap-3 mx-auto neon-glow"
+              >
+                <Plus size={24} />
+                Create Your First Story
+              </button>
+            </div>
           ) : (
             <div className="grid grid-cols-3 gap-4">
               {userStories.map((story) => (

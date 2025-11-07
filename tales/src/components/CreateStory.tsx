@@ -99,7 +99,8 @@ export default function CreateStory() {
     "Inside a cool recording studio",
     "Secret rooftop garden",
     "Neon arcade nostalgia",
-    "Cozy winter market scene"
+    "Cozy winter market scene",
+    "F1 pit lane adrenaline rush"
   ];
 
   const handleSuggestionClick = async (suggestion: string) => {

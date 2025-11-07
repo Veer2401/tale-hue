@@ -43,7 +43,7 @@ export default function Home() {
           <CreateStory />
         </div>
         <div className={currentView === 'profile' ? 'block' : 'hidden'}>
-          <Profile />
+          <Profile onNavigateToCreate={() => handleNavigate('create')} />
         </div>
         <div className={currentView === 'followers' ? 'block' : 'hidden'}>
           <Community />
