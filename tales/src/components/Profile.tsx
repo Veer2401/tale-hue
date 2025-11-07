@@ -22,6 +22,7 @@ export default function Profile({ onNavigateToCreate }: ProfileProps) {
   const [editedContent, setEditedContent] = useState('');
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
@@ -78,6 +79,8 @@ export default function Profile({ onNavigateToCreate }: ProfileProps) {
   const handleEditStory = (story: Story) => {
     setEditingStory(story.storyID);
     setEditedContent(story.content);
+    setSelectedStory(story);
+    setShowEditModal(true);
   };
 
   const handleSaveStory = async (storyId: string) => {
@@ -100,6 +103,8 @@ export default function Profile({ onNavigateToCreate }: ProfileProps) {
         // Refresh stories
         await fetchUserStories();
         setEditingStory(null);
+        setShowEditModal(false);
+        setSelectedStory(null);
         setNotification({ type: 'success', message: 'Story updated successfully!' });
         setTimeout(() => setNotification(null), 3000);
       }
@@ -391,58 +396,89 @@ export default function Profile({ onNavigateToCreate }: ProfileProps) {
                   {story.imageURL ? (
                     <>
                       <img src={story.imageURL} alt={story.content} className="w-full h-full object-cover" />
-                      {/* Hover/Touch overlay with stats and actions */}
-                      <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 active:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 md:gap-3 text-white p-2 md:p-4">
+                      
+                      {/* Mobile: Always visible action buttons at top-right */}
+                      <div className="absolute top-1 right-1 flex gap-1 md:hidden z-10">
+                        <button
+                          onClick={() => handleEditStory(story)}
+                          className="p-1.5 bg-orange-500/90 backdrop-blur-sm hover:bg-orange-600 rounded-lg shadow-lg transition-all active:scale-95"
+                          title="Edit"
+                        >
+                          <Edit2 size={14} className="text-white" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteStory(story)}
+                          className="p-1.5 bg-red-500/90 backdrop-blur-sm hover:bg-red-600 rounded-lg shadow-lg transition-all active:scale-95"
+                          title="Delete"
+                        >
+                          <Trash2 size={14} className="text-white" />
+                        </button>
+                      </div>
+
+                      {/* Mobile: Stats badge at bottom */}
+                      <div className="absolute bottom-1 left-1 right-1 flex items-center justify-center gap-3 bg-black/60 backdrop-blur-sm rounded-lg py-1 px-2 md:hidden">
+                        <div className="flex items-center gap-1">
+                          <Heart size={12} fill="white" className="text-white" />
+                          <span className="font-semibold text-xs text-white">{story.likesCount || 0}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <MessageCircle size={12} fill="white" className="text-white" />
+                          <span className="font-semibold text-xs text-white">{story.commentsCount || 0}</span>
+                        </div>
+                      </div>
+
+                      {/* Desktop: Hover overlay with stats and actions */}
+                      <div className="hidden md:flex absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex-col items-center justify-center gap-3 text-white p-4">
                         {editingStory === story.storyID ? (
-                          <div className="w-full flex flex-col gap-1.5 md:gap-2">
+                          <div className="w-full flex flex-col gap-2">
                             <textarea
                               value={editedContent}
                               onChange={(e) => setEditedContent(e.target.value)}
                               maxLength={150}
-                              className="w-full px-2 md:px-3 py-1.5 md:py-2 bg-zinc-800 text-white rounded-lg text-xs md:text-sm resize-none"
+                              className="w-full px-3 py-2 bg-zinc-800 text-white rounded-lg text-sm resize-none"
                               rows={3}
                               autoFocus
                             />
-                            <div className="flex gap-1.5 md:gap-2">
+                            <div className="flex gap-2">
                               <button
                                 onClick={() => handleSaveStory(story.storyID)}
-                                className="flex-1 px-2 md:px-3 py-1.5 md:py-2 bg-green-500 hover:bg-green-600 rounded-lg text-xs md:text-sm font-semibold flex items-center justify-center gap-1"
+                                className="flex-1 px-3 py-2 bg-green-500 hover:bg-green-600 rounded-lg text-sm font-semibold flex items-center justify-center gap-1"
                               >
-                                <Check size={14} className="md:w-4 md:h-4" /> <span className="hidden md:inline">Save</span>
+                                <Check size={16} /> Save
                               </button>
                               <button
                                 onClick={() => setEditingStory(null)}
-                                className="flex-1 px-2 md:px-3 py-1.5 md:py-2 bg-zinc-600 hover:bg-zinc-700 rounded-lg text-xs md:text-sm font-semibold flex items-center justify-center gap-1"
+                                className="flex-1 px-3 py-2 bg-zinc-600 hover:bg-zinc-700 rounded-lg text-sm font-semibold flex items-center justify-center gap-1"
                               >
-                                <X size={14} className="md:w-4 md:h-4" /> <span className="hidden md:inline">Cancel</span>
+                                <X size={16} /> Cancel
                               </button>
                             </div>
                           </div>
                         ) : (
                           <>
-                            <p className="text-xs md:text-sm text-center line-clamp-2 mb-1 md:mb-2 px-1">{story.content}</p>
-                            <div className="flex items-center gap-2 md:gap-4 mb-1 md:mb-2">
-                              <div className="flex items-center gap-0.5 md:gap-1">
-                                <Heart size={14} fill="white" className="md:w-[18px] md:h-[18px]" />
-                                <span className="font-semibold text-xs md:text-sm">{story.likesCount || 0}</span>
+                            <p className="text-sm text-center line-clamp-2 mb-2 px-1">{story.content}</p>
+                            <div className="flex items-center gap-4 mb-2">
+                              <div className="flex items-center gap-1">
+                                <Heart size={18} fill="white" />
+                                <span className="font-semibold text-sm">{story.likesCount || 0}</span>
                               </div>
-                              <div className="flex items-center gap-0.5 md:gap-1">
-                                <MessageCircle size={14} fill="white" className="md:w-[18px] md:h-[18px]" />
-                                <span className="font-semibold text-xs md:text-sm">{story.commentsCount || 0}</span>
+                              <div className="flex items-center gap-1">
+                                <MessageCircle size={18} fill="white" />
+                                <span className="font-semibold text-sm">{story.commentsCount || 0}</span>
                               </div>
                             </div>
-                            <div className="flex gap-1.5 md:gap-2 flex-wrap justify-center">
+                            <div className="flex gap-2 flex-wrap justify-center">
                               <button
                                 onClick={() => handleEditStory(story)}
-                                className="px-2 md:px-4 py-1.5 md:py-2 bg-orange-500 hover:bg-orange-600 rounded-lg text-xs md:text-sm font-semibold flex items-center gap-0.5 md:gap-1"
+                                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 rounded-lg text-sm font-semibold flex items-center gap-1"
                               >
-                                <Edit2 size={12} className="md:w-[14px] md:h-[14px]" /> <span className="hidden md:inline">Edit</span>
+                                <Edit2 size={14} /> Edit
                               </button>
                               <button
                                 onClick={() => handleDeleteStory(story)}
-                                className="px-2 md:px-4 py-1.5 md:py-2 bg-red-500 hover:bg-red-600 rounded-lg text-xs md:text-sm font-semibold flex items-center gap-0.5 md:gap-1"
+                                className="px-4 py-2 bg-red-500 hover:bg-red-600 rounded-lg text-sm font-semibold flex items-center gap-1"
                               >
-                                <Trash2 size={12} className="md:w-[14px] md:h-[14px]" /> <span className="hidden md:inline">Delete</span>
+                                <Trash2 size={14} /> Delete
                               </button>
                             </div>
                           </>
@@ -463,21 +499,21 @@ export default function Profile({ onNavigateToCreate }: ProfileProps) {
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && selectedStory && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl max-w-md w-full p-6 border border-zinc-200 dark:border-zinc-800">
-            <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 mb-3">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="glass rounded-3xl max-w-md w-full p-6 border border-red-400/30 shadow-2xl animate-in zoom-in-95 duration-200">
+            <h3 className="text-xl md:text-2xl font-bold text-white mb-3 neon-text">
               Delete Story?
             </h3>
-            <p className="text-zinc-600 dark:text-zinc-400 mb-4">
+            <p className="text-zinc-300 text-sm md:text-base mb-4">
               Are you sure you want to delete this story? This will also delete all likes and comments. This action cannot be undone.
             </p>
-            <div className="bg-zinc-100 dark:bg-zinc-800 rounded-lg p-3 mb-4">
-              <p className="text-sm text-zinc-900 dark:text-zinc-100 italic">"{selectedStory.content}"</p>
+            <div className="glass rounded-2xl p-3 md:p-4 mb-6 border border-white/10">
+              <p className="text-sm md:text-base text-white italic">"{selectedStory.content}"</p>
             </div>
             <div className="flex gap-3">
               <button
                 onClick={confirmDelete}
-                className="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold transition-all"
+                className="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold transition-all transform active:scale-95"
               >
                 Delete
               </button>
@@ -486,8 +522,86 @@ export default function Profile({ onNavigateToCreate }: ProfileProps) {
                   setShowDeleteConfirm(false);
                   setSelectedStory(null);
                 }}
-                className="flex-1 px-4 py-3 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-xl font-semibold transition-all"
+                className="flex-1 px-4 py-3 glass border border-white/20 hover:bg-white/10 text-white rounded-xl font-semibold transition-all transform active:scale-95"
               >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Story Modal - Mobile Friendly */}
+      {showEditModal && selectedStory && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="glass rounded-3xl max-w-md w-full p-6 border border-purple-400/30 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl md:text-2xl font-bold text-white neon-text">
+                Edit Your Story
+              </h3>
+              <button
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingStory(null);
+                  setSelectedStory(null);
+                }}
+                className="p-2 glass hover:bg-white/10 rounded-full transition-all"
+              >
+                <X size={20} className="text-white" />
+              </button>
+            </div>
+            
+            {/* Story Image Preview */}
+            {selectedStory.imageURL && (
+              <div className="mb-4 rounded-2xl overflow-hidden border-2 border-purple-400/30">
+                <img 
+                  src={selectedStory.imageURL} 
+                  alt={selectedStory.content}
+                  className="w-full aspect-square object-cover"
+                />
+              </div>
+            )}
+
+            {/* Edit Form */}
+            <div className="mb-4">
+              <textarea
+                value={editedContent}
+                onChange={(e) => setEditedContent(e.target.value)}
+                maxLength={150}
+                className="w-full px-4 py-3 glass rounded-2xl border-2 border-purple-400/30 focus:border-purple-400 focus:outline-none text-white text-base resize-none placeholder-purple-200/50 font-medium"
+                rows={4}
+                placeholder="Edit your story..."
+                autoFocus
+              />
+              <div className="flex justify-between items-center mt-2">
+                <span className="text-xs text-purple-200 font-bold">
+                  {editedContent.length}/150 characters
+                </span>
+                <span className={`text-xs font-black ${editedContent.length > 150 ? 'text-red-400' : 'text-green-400'}`}>
+                  {editedContent.length > 150 ? '❌ Too long' : '✓ Perfect'}
+                </span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleSaveStory(selectedStory.storyID)}
+                disabled={!editedContent.trim() || editedContent.length > 150}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-green-500 via-emerald-500 to-green-600 text-white rounded-xl font-semibold transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 neon-glow"
+              >
+                <Check size={18} />
+                Save Changes
+              </button>
+              <button
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingStory(null);
+                  setSelectedStory(null);
+                }}
+                className="flex-1 px-4 py-3 glass border border-white/20 hover:bg-white/10 text-white rounded-xl font-semibold transition-all transform active:scale-95 flex items-center justify-center gap-2"
+              >
+                <X size={18} />
                 Cancel
               </button>
             </div>
