@@ -83,7 +83,7 @@ export default function Community() {
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6">
-      <h2 className="text-2xl md:text-3xl font-bold text-zinc-900 dark:text-zinc-100 mb-6 md:mb-8">
+      <h2 className="text-2xl md:text-3xl font-bold text-zinc-900 dark:text-zinc-100 mb-4 md:mb-6">
         Discover Creators
       </h2>
 
@@ -91,11 +91,11 @@ export default function Community() {
         {users.map((userProfile) => (
           <div
             key={userProfile.userID}
-            className="bg-white dark:bg-zinc-900 rounded-2xl p-6 border border-zinc-200 dark:border-zinc-800 hover:shadow-lg transition-shadow"
+            className="bg-white dark:bg-zinc-900 rounded-2xl p-4 md:p-6 border border-zinc-200 dark:border-zinc-800 hover:shadow-lg transition-shadow"
           >
             {/* Profile Image */}
             <div className="flex flex-col items-center">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-400 via-pink-500 to-orange-500 flex items-center justify-center text-white text-2xl font-bold mb-3 overflow-hidden">
+              <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-purple-400 via-pink-500 to-orange-500 flex items-center justify-center text-white text-xl md:text-2xl font-bold mb-3 overflow-hidden">
                 {userProfile.profileImage ? (
                   <img src={userProfile.profileImage} alt={userProfile.displayName} className="w-full h-full object-cover" />
                 ) : (
@@ -103,15 +103,15 @@ export default function Community() {
                 )}
               </div>
               
-              <h3 className="font-bold text-zinc-900 dark:text-zinc-100 text-center">
+              <h3 className="font-bold text-zinc-900 dark:text-zinc-100 text-center text-sm md:text-base">
                 {userProfile.displayName}
               </h3>
-              <p className="text-sm text-zinc-500 text-center mt-1 line-clamp-2">
+              <p className="text-xs md:text-sm text-zinc-500 text-center mt-1 line-clamp-2 px-2">
                 {userProfile.bio || 'No bio yet'}
               </p>
 
               {/* Stats */}
-              <div className="flex gap-4 mt-3 text-sm">
+              <div className="flex gap-3 md:gap-4 mt-2 md:mt-3 text-xs md:text-sm">
                 <div className="text-center">
                   <div className="font-semibold text-zinc-900 dark:text-zinc-100">
                     {userProfile.stories.length}
@@ -130,7 +130,7 @@ export default function Community() {
               {user && (
                 <button
                   onClick={() => handleFollow(userProfile.userID)}
-                  className={`mt-4 w-full py-2 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
+                  className={`mt-3 md:mt-4 w-full py-2 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-sm ${
                     profile?.following.includes(userProfile.userID)
                       ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
                       : 'bg-gradient-to-r from-purple-400 via-pink-500 to-orange-500 text-white hover:shadow-lg'
@@ -155,8 +155,8 @@ export default function Community() {
       </div>
 
       {users.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-zinc-500 text-lg">No other users yet. Invite your friends! 🎉</p>
+        <div className="text-center py-8 md:py-12">
+          <p className="text-zinc-500 text-base md:text-lg">No other users yet. Invite your friends! 🎉</p>
         </div>
       )}
     </div>

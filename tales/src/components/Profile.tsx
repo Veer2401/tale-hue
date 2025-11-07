@@ -257,39 +257,39 @@ export default function Profile({ onNavigateToCreate }: ProfileProps) {
   }
 
   return (
-    <div className="max-w-5xl mx-auto p-6">
+    <div className="max-w-5xl mx-auto p-4 md:p-6">
       {/* Notification Toast */}
       {notification && (
-        <div className="fixed top-6 right-6 z-50 animate-slide-in">
-          <div className={`glass rounded-2xl px-6 py-4 border shadow-2xl flex items-center gap-3 neon-glow ${
+        <div className="fixed top-4 md:top-6 right-4 md:right-6 left-4 md:left-auto z-50 animate-slide-in">
+          <div className={`glass rounded-2xl px-4 md:px-6 py-3 md:py-4 border shadow-2xl flex items-center gap-2 md:gap-3 neon-glow ${
             notification.type === 'success' 
               ? 'border-green-500/50' 
               : 'border-red-500/50'
           }`}>
             {notification.type === 'success' ? (
-              <CheckCircle className="text-green-400" size={24} />
+              <CheckCircle className="text-green-400" size={20} />
             ) : (
-              <XCircle className="text-red-400" size={24} />
+              <XCircle className="text-red-400" size={20} />
             )}
-            <p className="text-white font-bold">{notification.message}</p>
+            <p className="text-white font-bold text-sm md:text-base">{notification.message}</p>
           </div>
         </div>
       )}
 
-      <div className="glass rounded-3xl shadow-2xl p-8 border border-purple-400/30">
+      <div className="glass rounded-3xl shadow-2xl p-4 md:p-8 border border-purple-400/30">
         {/* Profile Header */}
-        <div className="flex items-start gap-6 mb-8">
+        <div className="flex flex-col md:flex-row items-center md:items-start gap-4 md:gap-6 mb-6 md:mb-8">
           {/* Profile Image */}
           <div className="relative">
-            <div className="w-28 h-28 rounded-full bg-gradient-to-br from-purple-500 via-pink-600 to-orange-500 flex items-center justify-center text-white text-4xl font-black overflow-hidden shadow-2xl neon-glow ring-4 ring-white/20">
+            <div className="w-24 h-24 md:w-28 md:h-28 rounded-full bg-gradient-to-br from-purple-500 via-pink-600 to-orange-500 flex items-center justify-center text-white text-3xl md:text-4xl font-black overflow-hidden shadow-2xl neon-glow ring-4 ring-white/20">
               {profile.profileImage ? (
                 <img src={profile.profileImage} alt={profile.displayName} className="w-full h-full object-cover" />
               ) : (
                 profile.displayName.charAt(0).toUpperCase()
               )}
             </div>
-            <label className="absolute bottom-0 right-0 w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center cursor-pointer hover:scale-110 transition-all shadow-lg">
-              <Camera size={20} className="text-white" />
+            <label className="absolute bottom-0 right-0 w-9 h-9 md:w-10 md:h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center cursor-pointer hover:scale-110 transition-all shadow-lg">
+              <Camera size={18} className="text-white md:w-5 md:h-5" />
               <input
                 type="file"
                 accept="image/*"
@@ -301,61 +301,61 @@ export default function Profile({ onNavigateToCreate }: ProfileProps) {
           </div>
 
           {/* Profile Info */}
-          <div className="flex-1">
+          <div className="flex-1 w-full text-center md:text-left">
             {editing ? (
               <div className="space-y-3">
                 <input
                   type="text"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  className="w-full px-5 py-3 glass rounded-2xl border-2 border-purple-400/30 text-white font-bold text-lg placeholder-purple-200/50"
+                  className="w-full px-4 md:px-5 py-2.5 md:py-3 glass rounded-2xl border-2 border-purple-400/30 text-white font-bold text-base md:text-lg placeholder-purple-200/50"
                   placeholder="Display Name"
                 />
                 <textarea
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
-                  className="w-full px-5 py-3 glass rounded-2xl border-2 border-purple-400/30 text-white font-medium placeholder-purple-200/50 resize-none"
+                  className="w-full px-4 md:px-5 py-2.5 md:py-3 glass rounded-2xl border-2 border-purple-400/30 text-white font-medium placeholder-purple-200/50 resize-none text-sm md:text-base"
                   placeholder="Bio - Tell your story..."
                   rows={3}
                 />
               </div>
             ) : (
               <>
-                <h2 className="text-3xl font-black text-white neon-text">
+                <h2 className="text-2xl md:text-3xl font-black text-white neon-text">
                   {profile.displayName}
                 </h2>
-                <p className="text-purple-100 mt-2 text-lg font-medium">{profile.bio || 'No bio yet - add your vibe!'}</p>
+                <p className="text-purple-100 mt-2 text-base md:text-lg font-medium">{profile.bio || 'No bio yet - add your vibe!'}</p>
               </>
             )}
 
             {/* Stats */}
-            <div className="flex gap-8 mt-6">
+            <div className="flex gap-4 md:gap-8 mt-4 md:mt-6 justify-center md:justify-start">
               <div className="text-center">
-                <div className="font-black text-white text-2xl gradient-text">{userStories.length}</div>
-                <div className="text-purple-200 text-sm font-bold">Stories</div>
+                <div className="font-black text-white text-xl md:text-2xl gradient-text">{userStories.length}</div>
+                <div className="text-purple-200 text-xs md:text-sm font-bold">Stories</div>
               </div>
               <div className="text-center">
-                <div className="font-black text-white text-2xl gradient-text">{profile.followers.length}</div>
-                <div className="text-purple-200 text-sm font-bold">Followers</div>
+                <div className="font-black text-white text-xl md:text-2xl gradient-text">{profile.followers.length}</div>
+                <div className="text-purple-200 text-xs md:text-sm font-bold">Followers</div>
               </div>
               <div className="text-center">
-                <div className="font-black text-white text-2xl gradient-text">{profile.following.length}</div>
-                <div className="text-purple-200 text-sm font-bold">Following</div>
+                <div className="font-black text-white text-xl md:text-2xl gradient-text">{profile.following.length}</div>
+                <div className="text-purple-200 text-xs md:text-sm font-bold">Following</div>
               </div>
             </div>
 
             {/* Edit Button */}
             <button
               onClick={editing ? handleSaveProfile : () => setEditing(true)}
-              className="mt-6 px-8 py-3 bg-gradient-to-r from-purple-500 via-pink-600 to-orange-500 text-white font-black rounded-full hover:shadow-2xl transform hover:scale-105 transition-all flex items-center gap-3 neon-glow"
+              className="mt-4 md:mt-6 px-6 md:px-8 py-2.5 md:py-3 bg-gradient-to-r from-purple-500 via-pink-600 to-orange-500 text-white font-black text-sm md:text-base rounded-full hover:shadow-2xl transform hover:scale-105 transition-all flex items-center gap-2 md:gap-3 neon-glow mx-auto md:mx-0"
             >
               {editing ? (
                 <>
-                  <Save size={20} /> Save Changes
+                  <Save size={18} className="md:w-5 md:h-5" /> Save Changes
                 </>
               ) : (
                 <>
-                  <Edit2 size={20} /> Edit Profile
+                  <Edit2 size={18} className="md:w-5 md:h-5" /> Edit Profile
                 </>
               )}
             </button>
@@ -363,24 +363,26 @@ export default function Profile({ onNavigateToCreate }: ProfileProps) {
         </div>
 
         {/* User Stories Grid */}
-        <div className="border-t border-white/10 pt-8">
-          <h3 className="text-2xl font-black text-white mb-6 neon-text">Your Stories</h3>
+        <div className="border-t border-white/10 pt-6 md:pt-8">
+          <h3 className="text-xl md:text-2xl font-black text-white mb-4 md:mb-6 neon-text">Your Stories</h3>
           {userStories.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-purple-500 via-pink-600 to-orange-500 flex items-center justify-center shadow-2xl neon-glow">
-                <Sparkles className="text-white" size={40} />
+            <div className="text-center py-8 md:py-12">
+              <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 md:mb-6 rounded-full bg-gradient-to-br from-purple-500 via-pink-600 to-orange-500 flex items-center justify-center shadow-2xl neon-glow">
+                <Sparkles className="text-white" size={32} />
+                <Sparkles className="text-white hidden md:block" size={40} />
               </div>
-              <p className="text-zinc-400 text-lg mb-6 font-medium">No stories yet. Create your first one!</p>
+              <p className="text-zinc-400 text-base md:text-lg mb-4 md:mb-6 font-medium px-4">No stories yet. Create your first one!</p>
               <button
                 onClick={onNavigateToCreate}
-                className="px-8 py-4 bg-gradient-to-r from-purple-500 via-pink-600 to-orange-500 text-white font-black text-lg rounded-full hover:shadow-2xl transform hover:scale-105 transition-all flex items-center justify-center gap-3 mx-auto neon-glow"
+                className="px-6 md:px-8 py-3 md:py-4 bg-gradient-to-r from-purple-500 via-pink-600 to-orange-500 text-white font-black text-base md:text-lg rounded-full hover:shadow-2xl transform hover:scale-105 transition-all flex items-center justify-center gap-2 md:gap-3 mx-auto neon-glow"
               >
-                <Plus size={24} />
+                <Plus size={20} />
+                <Plus size={24} className="hidden md:block" />
                 Create Your First Story
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 md:gap-4">
               {userStories.map((story) => (
                 <div 
                   key={story.storyID} 
@@ -389,58 +391,58 @@ export default function Profile({ onNavigateToCreate }: ProfileProps) {
                   {story.imageURL ? (
                     <>
                       <img src={story.imageURL} alt={story.content} className="w-full h-full object-cover" />
-                      {/* Hover overlay with stats and actions */}
-                      <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3 text-white p-4">
+                      {/* Hover/Touch overlay with stats and actions */}
+                      <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 active:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 md:gap-3 text-white p-2 md:p-4">
                         {editingStory === story.storyID ? (
-                          <div className="w-full flex flex-col gap-2">
+                          <div className="w-full flex flex-col gap-1.5 md:gap-2">
                             <textarea
                               value={editedContent}
                               onChange={(e) => setEditedContent(e.target.value)}
                               maxLength={150}
-                              className="w-full px-3 py-2 bg-zinc-800 text-white rounded-lg text-sm resize-none"
+                              className="w-full px-2 md:px-3 py-1.5 md:py-2 bg-zinc-800 text-white rounded-lg text-xs md:text-sm resize-none"
                               rows={3}
                               autoFocus
                             />
-                            <div className="flex gap-2">
+                            <div className="flex gap-1.5 md:gap-2">
                               <button
                                 onClick={() => handleSaveStory(story.storyID)}
-                                className="flex-1 px-3 py-2 bg-green-500 hover:bg-green-600 rounded-lg text-sm font-semibold flex items-center justify-center gap-1"
+                                className="flex-1 px-2 md:px-3 py-1.5 md:py-2 bg-green-500 hover:bg-green-600 rounded-lg text-xs md:text-sm font-semibold flex items-center justify-center gap-1"
                               >
-                                <Check size={16} /> Save
+                                <Check size={14} className="md:w-4 md:h-4" /> <span className="hidden md:inline">Save</span>
                               </button>
                               <button
                                 onClick={() => setEditingStory(null)}
-                                className="flex-1 px-3 py-2 bg-zinc-600 hover:bg-zinc-700 rounded-lg text-sm font-semibold flex items-center justify-center gap-1"
+                                className="flex-1 px-2 md:px-3 py-1.5 md:py-2 bg-zinc-600 hover:bg-zinc-700 rounded-lg text-xs md:text-sm font-semibold flex items-center justify-center gap-1"
                               >
-                                <X size={16} /> Cancel
+                                <X size={14} className="md:w-4 md:h-4" /> <span className="hidden md:inline">Cancel</span>
                               </button>
                             </div>
                           </div>
                         ) : (
                           <>
-                            <p className="text-sm text-center line-clamp-2 mb-2">{story.content}</p>
-                            <div className="flex items-center gap-4 mb-2">
-                              <div className="flex items-center gap-1">
-                                <Heart size={18} fill="white" />
-                                <span className="font-semibold">{story.likesCount || 0}</span>
+                            <p className="text-xs md:text-sm text-center line-clamp-2 mb-1 md:mb-2 px-1">{story.content}</p>
+                            <div className="flex items-center gap-2 md:gap-4 mb-1 md:mb-2">
+                              <div className="flex items-center gap-0.5 md:gap-1">
+                                <Heart size={14} fill="white" className="md:w-[18px] md:h-[18px]" />
+                                <span className="font-semibold text-xs md:text-sm">{story.likesCount || 0}</span>
                               </div>
-                              <div className="flex items-center gap-1">
-                                <MessageCircle size={18} fill="white" />
-                                <span className="font-semibold">{story.commentsCount || 0}</span>
+                              <div className="flex items-center gap-0.5 md:gap-1">
+                                <MessageCircle size={14} fill="white" className="md:w-[18px] md:h-[18px]" />
+                                <span className="font-semibold text-xs md:text-sm">{story.commentsCount || 0}</span>
                               </div>
                             </div>
-                            <div className="flex gap-2">
+                            <div className="flex gap-1.5 md:gap-2 flex-wrap justify-center">
                               <button
                                 onClick={() => handleEditStory(story)}
-                                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 rounded-lg text-sm font-semibold flex items-center gap-1"
+                                className="px-2 md:px-4 py-1.5 md:py-2 bg-orange-500 hover:bg-orange-600 rounded-lg text-xs md:text-sm font-semibold flex items-center gap-0.5 md:gap-1"
                               >
-                                <Edit2 size={14} /> Edit
+                                <Edit2 size={12} className="md:w-[14px] md:h-[14px]" /> <span className="hidden md:inline">Edit</span>
                               </button>
                               <button
                                 onClick={() => handleDeleteStory(story)}
-                                className="px-4 py-2 bg-red-500 hover:bg-red-600 rounded-lg text-sm font-semibold flex items-center gap-1"
+                                className="px-2 md:px-4 py-1.5 md:py-2 bg-red-500 hover:bg-red-600 rounded-lg text-xs md:text-sm font-semibold flex items-center gap-0.5 md:gap-1"
                               >
-                                <Trash2 size={14} /> Delete
+                                <Trash2 size={12} className="md:w-[14px] md:h-[14px]" /> <span className="hidden md:inline">Delete</span>
                               </button>
                             </div>
                           </>
@@ -448,7 +450,7 @@ export default function Profile({ onNavigateToCreate }: ProfileProps) {
                       </div>
                     </>
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-purple-400 via-pink-500 to-orange-500 flex items-center justify-center text-white p-4 text-sm">
+                    <div className="w-full h-full bg-gradient-to-br from-purple-400 via-pink-500 to-orange-500 flex items-center justify-center text-white p-2 md:p-4 text-xs md:text-sm">
                       {story.content}
                     </div>
                   )}
