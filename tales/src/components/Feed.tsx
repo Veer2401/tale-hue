@@ -409,11 +409,35 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
     }
   };
 
-  const handleShare = (platform: string) => {
+  const handleShare = async (platform?: string) => {
     if (!detailStory) return;
     
     const shareUrl = window.location.href;
     const shareText = `Check out this amazing story on TaleHue: "${detailStory.content}"`;
+    
+    // Check if Web Share API is available (mobile devices)
+    if (!platform && navigator.share) {
+      try {
+        await navigator.share({
+          title: 'TaleHue Story',
+          text: shareText,
+          url: shareUrl,
+        });
+        return;
+      } catch (err) {
+        // User cancelled or error occurred
+        console.log('Share cancelled or failed:', err);
+        // Fall through to show share menu if share was cancelled
+      }
+    }
+    
+    // If no platform specified, show the share menu (desktop fallback)
+    if (!platform) {
+      setShowShareMenu(!showShareMenu);
+      return;
+    }
+    
+    // Handle specific platform shares
     const encodedUrl = encodeURIComponent(shareUrl);
     const encodedText = encodeURIComponent(shareText);
     
@@ -644,7 +668,7 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
                     <span className="font-bold text-lg">{detailStory.commentsCount || 0}</span>
                   </div>
                   <button 
-                    onClick={() => setShowShareMenu(!showShareMenu)}
+                    onClick={() => handleShare()}
                     className="group flex items-center gap-3 text-zinc-400 hover:text-green-400 transition-all duration-300 transform hover:scale-110"
                   >
                     <div className="p-3 rounded-full bg-white/5 group-hover:bg-green-400/20 transition-all">
