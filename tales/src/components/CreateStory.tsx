@@ -97,7 +97,7 @@ export default function CreateStory() {
   const suggestions = [
     "Sunset beach café vibe",
     "Inside a cool recording studio",
-    "Secret rooftop garden",
+    "Magical Christmas village at night",
     "Neon arcade nostalgia",
     "Cozy winter market scene",
     "F1 pit lane adrenaline rush"
