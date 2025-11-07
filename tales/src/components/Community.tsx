@@ -1,164 +1,87 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, updateDoc, arrayUnion, arrayRemove, query, where } from 'firebase/firestore';
-import { Profile } from '@/types';
-import { UserPlus, UserCheck } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { Sparkles, Rocket, Zap } from 'lucide-react';
 
 export default function Community() {
-  const { user, profile } = useAuth();
-  const [users, setUsers] = useState<Profile[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const fetchUsers = async () => {
-    const snapshot = await getDocs(collection(db, 'profiles'));
-    const usersData = snapshot.docs
-      .map(doc => doc.data() as Profile)
-      .filter(p => p.userID !== user?.uid)
-      .filter(p => p.displayName !== 'Veer Harischandrakar'); // Hide this specific account
-    setUsers(usersData);
-    setLoading(false);
-  };
-
-  const handleFollow = async (targetUserId: string) => {
-    if (!user || !profile) return;
-
-    try {
-      const isFollowing = profile.following.includes(targetUserId);
-      
-      // Find the current user's profile document
-      const userProfileQuery = query(collection(db, 'profiles'), where('userID', '==', user.uid));
-      const userProfileSnapshot = await getDocs(userProfileQuery);
-      
-      // Find the target user's profile document
-      const targetProfileQuery = query(collection(db, 'profiles'), where('userID', '==', targetUserId));
-      const targetProfileSnapshot = await getDocs(targetProfileQuery);
-      
-      if (userProfileSnapshot.empty || targetProfileSnapshot.empty) {
-        console.error('Profile documents not found');
-        return;
-      }
-      
-      const userProfileRef = doc(db, 'profiles', userProfileSnapshot.docs[0].id);
-      const targetProfileRef = doc(db, 'profiles', targetProfileSnapshot.docs[0].id);
-
-      if (isFollowing) {
-        // Unfollow
-        await updateDoc(userProfileRef, {
-          following: arrayRemove(targetUserId)
-        });
-        await updateDoc(targetProfileRef, {
-          followers: arrayRemove(user.uid)
-        });
-      } else {
-        // Follow
-        await updateDoc(userProfileRef, {
-          following: arrayUnion(targetUserId)
-        });
-        await updateDoc(targetProfileRef, {
-          followers: arrayUnion(user.uid)
-        });
-      }
-
-      // Refresh the user list to show updated state
-      fetchUsers();
-    } catch (error) {
-      console.error('Error following/unfollowing user:', error);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-400 border-t-transparent"></div>
-      </div>
-    );
-  }
-
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-6">
-      <h2 className="text-2xl md:text-3xl font-bold text-zinc-900 dark:text-zinc-100 mb-4 md:mb-6">
-        Discover Creators
-      </h2>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-        {users.map((userProfile) => (
-          <div
-            key={userProfile.userID}
-            className="bg-white dark:bg-zinc-900 rounded-2xl p-4 md:p-6 border border-zinc-200 dark:border-zinc-800 hover:shadow-lg transition-shadow"
-          >
-            {/* Profile Image */}
-            <div className="flex flex-col items-center">
-              <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-purple-400 via-pink-500 to-orange-500 flex items-center justify-center text-white text-xl md:text-2xl font-bold mb-3 overflow-hidden">
-                {userProfile.profileImage ? (
-                  <img src={userProfile.profileImage} alt={userProfile.displayName} className="w-full h-full object-cover" />
-                ) : (
-                  userProfile.displayName.charAt(0).toUpperCase()
-                )}
-              </div>
-              
-              <h3 className="font-bold text-zinc-900 dark:text-zinc-100 text-center text-sm md:text-base">
-                {userProfile.displayName}
-              </h3>
-              <p className="text-xs md:text-sm text-zinc-500 text-center mt-1 line-clamp-2 px-2">
-                {userProfile.bio || 'No bio yet'}
-              </p>
-
-              {/* Stats */}
-              <div className="flex gap-3 md:gap-4 mt-2 md:mt-3 text-xs md:text-sm">
-                <div className="text-center">
-                  <div className="font-semibold text-zinc-900 dark:text-zinc-100">
-                    {userProfile.stories.length}
-                  </div>
-                  <div className="text-zinc-500">Stories</div>
-                </div>
-                <div className="text-center">
-                  <div className="font-semibold text-zinc-900 dark:text-zinc-100">
-                    {userProfile.followers.length}
-                  </div>
-                  <div className="text-zinc-500">Followers</div>
-                </div>
-              </div>
-
-              {/* Follow Button */}
-              {user && (
-                <button
-                  onClick={() => handleFollow(userProfile.userID)}
-                  className={`mt-3 md:mt-4 w-full py-2 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-sm ${
-                    profile?.following.includes(userProfile.userID)
-                      ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
-                      : 'bg-gradient-to-r from-purple-400 via-pink-500 to-orange-500 text-white hover:shadow-lg'
-                  }`}
-                >
-                  {profile?.following.includes(userProfile.userID) ? (
-                    <>
-                      <UserCheck size={16} />
-                      Following
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus size={16} />
-                      Follow
-                    </>
-                  )}
-                </button>
-              )}
+    <div className="min-h-screen flex items-center justify-center p-4 md:p-6">
+      <div className="max-w-2xl w-full">
+        <div className="glass rounded-3xl shadow-2xl p-8 md:p-12 border border-purple-400/30 text-center">
+          {/* Animated Icon */}
+          <div className="relative mb-8">
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-500 via-pink-600 to-orange-500 rounded-full blur-3xl opacity-30 animate-pulse"></div>
+            <div className="relative w-24 h-24 md:w-32 md:h-32 mx-auto rounded-full bg-gradient-to-br from-purple-500 via-pink-600 to-orange-500 flex items-center justify-center shadow-2xl neon-glow animate-bounce">
+              <Rocket className="text-white" size={48} />
+              <Rocket className="text-white hidden md:block" size={64} />
             </div>
           </div>
-        ))}
-      </div>
 
-      {users.length === 0 && (
-        <div className="text-center py-8 md:py-12">
-          <p className="text-zinc-500 text-base md:text-lg">No other users yet. Invite your friends! 🎉</p>
+          {/* Main Message */}
+          <h1 className="text-4xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-200 via-pink-300 to-orange-300 mb-4 md:mb-6 neon-text animate-in slide-in-from-top duration-500">
+            Coming Soon! 🚀
+          </h1>
+          
+          <h2 className="text-2xl md:text-3xl font-bold text-white mb-4 md:mb-6 animate-in slide-in-from-top duration-700">
+            Squad Goals Loading... 🔥
+          </h2>
+
+          {/* Gen Z Messages */}
+          <div className="space-y-3 md:space-y-4 mb-8 md:mb-10 animate-in slide-in-from-bottom duration-700">
+            <p className="text-purple-100 text-base md:text-lg font-medium flex items-center justify-center gap-2">
+              <Zap className="text-yellow-400 animate-pulse" size={20} />
+              We're cooking up something absolutely fire 💯
+            </p>
+            <p className="text-purple-100 text-base md:text-lg font-medium">
+              The ultimate creator community is on its way, bestie! ✨
+            </p>
+            <p className="text-purple-100 text-base md:text-lg font-medium">
+              Get ready to connect, collab, and vibe with your tribe 🌟
+            </p>
+          </div>
+
+          {/* Feature Teasers */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8 md:mb-10">
+            <div className="glass rounded-2xl p-4 md:p-6 border border-purple-400/20 hover:border-purple-400/50 transition-all duration-300 transform hover:scale-105">
+              <div className="text-3xl md:text-4xl mb-2 md:mb-3">👥</div>
+              <h3 className="text-white font-bold text-sm md:text-base mb-1 md:mb-2">Creator Squads</h3>
+              <p className="text-purple-200 text-xs md:text-sm">Find your creative fam</p>
+            </div>
+
+            <div className="glass rounded-2xl p-4 md:p-6 border border-pink-500/20 hover:border-pink-500/50 transition-all duration-300 transform hover:scale-105">
+              <div className="text-3xl md:text-4xl mb-2 md:mb-3">💬</div>
+              <h3 className="text-white font-bold text-sm md:text-base mb-1 md:mb-2">Real-Time Vibes</h3>
+              <p className="text-purple-200 text-xs md:text-sm">Chat & share instantly</p>
+            </div>
+
+            <div className="glass rounded-2xl p-4 md:p-6 border border-orange-500/20 hover:border-orange-500/50 transition-all duration-300 transform hover:scale-105">
+              <div className="text-3xl md:text-4xl mb-2 md:mb-3">🎨</div>
+              <h3 className="text-white font-bold text-sm md:text-base mb-1 md:mb-2">Collab Spaces</h3>
+              <p className="text-purple-200 text-xs md:text-sm">Create together, slay together</p>
+            </div>
+          </div>
+
+          {/* Bottom Message */}
+          <div className="glass rounded-2xl p-4 md:p-6 border border-purple-400/20 animate-in fade-in duration-1000">
+            <p className="text-purple-100 text-sm md:text-base font-medium mb-2 md:mb-3">
+              💡 <span className="font-bold text-white">Pro Tip:</span> Keep creating stories while we build this!
+            </p>
+            <p className="text-purple-200/80 text-xs md:text-sm">
+              The more you vibe now, the more lit your community experience will be 🎉
+            </p>
+          </div>
+
+          {/* Sparkle Decorations */}
+          <div className="absolute top-10 left-10 animate-ping opacity-20">
+            <Sparkles className="text-purple-400" size={24} />
+          </div>
+          <div className="absolute bottom-10 right-10 animate-ping opacity-20" style={{ animationDelay: '1s' }}>
+            <Sparkles className="text-pink-400" size={24} />
+          </div>
+          <div className="absolute top-1/2 left-5 animate-ping opacity-20" style={{ animationDelay: '0.5s' }}>
+            <Sparkles className="text-orange-400" size={20} />
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
