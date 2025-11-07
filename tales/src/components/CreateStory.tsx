@@ -513,6 +513,13 @@ export default function CreateStory() {
             )}
           </button>
         )}
+
+        {/* AI Disclaimer */}
+        <div className="mt-6 p-4 glass border border-purple-400/20 rounded-2xl backdrop-blur-sm">
+          <p className="text-xs text-purple-200/80 text-center font-medium">
+            <span className="font-bold text-purple-300">Note:</span> AI-generated content may not always be perfect. Please review before posting.
+          </p>
+        </div>
       </div>
     </div>
   );
