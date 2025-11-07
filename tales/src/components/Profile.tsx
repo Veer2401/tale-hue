@@ -96,7 +96,7 @@ export default function Profile() {
         // Refresh stories
         await fetchUserStories();
         setEditingStory(null);
-        setNotification({ type: 'success', message: '✨ Story updated successfully!' });
+        setNotification({ type: 'success', message: 'Story updated successfully!' });
         setTimeout(() => setNotification(null), 3000);
       }
     } catch (error) {
@@ -149,9 +149,9 @@ export default function Profile() {
   if (!user || !profile) {
     return (
       <div className="max-w-4xl mx-auto p-4 md:p-6">
-        <div className="glass rounded-3xl shadow-2xl overflow-hidden border border-purple-500/30">
+        <div className="glass rounded-3xl shadow-2xl overflow-hidden border border-purple-400/30">
           {/* Gradient Header */}
-          <div className="relative h-32 bg-gradient-to-br from-purple-600 via-pink-600 to-orange-500">
+          <div className="relative h-32 bg-gradient-to-br from-purple-500 via-pink-600 to-orange-500">
             <div className="absolute inset-0 bg-black/10"></div>
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center text-white">
@@ -172,12 +172,12 @@ export default function Profile() {
               
               {/* Benefits Grid */}
               <div className="grid md:grid-cols-2 gap-3 mb-6">
-                <div className="p-4 glass rounded-2xl border border-purple-500/30">
-                  <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center mb-3 shadow-lg">
+                <div className="p-4 glass rounded-2xl border border-purple-400/30">
+                  <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center mb-3 shadow-lg">
                     <Sparkles size={20} className="text-white" />
                   </div>
                   <h4 className="font-black text-white mb-1 text-sm">Create AI Stories</h4>
-                  <p className="text-xs text-purple-200">
+                  <p className="text-xs text-purple-100">
                     Transform vibes into visual masterpieces
                   </p>
                 </div>
@@ -187,7 +187,7 @@ export default function Profile() {
                     <Heart size={20} className="text-white" />
                   </div>
                   <h4 className="font-black text-white mb-1 text-sm">Build Your Collection</h4>
-                  <p className="text-xs text-purple-200">
+                  <p className="text-xs text-purple-100">
                     Curate your fire content library 🔥
                   </p>
                 </div>
@@ -197,7 +197,7 @@ export default function Profile() {
                     <MessageCircle size={20} className="text-white" />
                   </div>
                   <h4 className="font-black text-white mb-1 text-sm">Engage & Connect</h4>
-                  <p className="text-xs text-purple-200">
+                  <p className="text-xs text-purple-100">
                     Vibe with the creative community 💬
                   </p>
                 </div>
@@ -207,7 +207,7 @@ export default function Profile() {
                     <Camera size={20} className="text-white" />
                   </div>
                   <h4 className="font-black text-white mb-1 text-sm">Customize Profile</h4>
-                  <p className="text-xs text-purple-200">
+                  <p className="text-xs text-purple-100">
                     Make it uniquely yours, bestie 😎
                   </p>
                 </div>
@@ -227,7 +227,7 @@ export default function Profile() {
                     }
                   }}
                   disabled={signingIn}
-                  className="px-8 py-4 bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 text-white font-black rounded-full hover:shadow-2xl transform hover:scale-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none inline-flex items-center gap-3 neon-glow"
+                  className="px-8 py-4 bg-gradient-to-r from-purple-500 via-pink-600 to-orange-500 text-white font-black rounded-full hover:shadow-2xl transform hover:scale-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none inline-flex items-center gap-3 neon-glow"
                 >
                   {signingIn ? (
                     <>
@@ -241,7 +241,7 @@ export default function Profile() {
                     </>
                   )}
                 </button>
-                <p className="text-xs text-purple-400/70 mt-3 font-medium">
+                <p className="text-xs text-purple-300/70 mt-3 font-medium">
                   Join the creative gang today! 🌟
                 </p>
               </div>
@@ -272,19 +272,19 @@ export default function Profile() {
         </div>
       )}
 
-      <div className="glass rounded-3xl shadow-2xl p-8 border border-purple-500/30">
+      <div className="glass rounded-3xl shadow-2xl p-8 border border-purple-400/30">
         {/* Profile Header */}
         <div className="flex items-start gap-6 mb-8">
           {/* Profile Image */}
           <div className="relative">
-            <div className="w-28 h-28 rounded-full bg-gradient-to-br from-purple-600 via-pink-600 to-orange-500 flex items-center justify-center text-white text-4xl font-black overflow-hidden shadow-2xl neon-glow ring-4 ring-white/20">
+            <div className="w-28 h-28 rounded-full bg-gradient-to-br from-purple-500 via-pink-600 to-orange-500 flex items-center justify-center text-white text-4xl font-black overflow-hidden shadow-2xl neon-glow ring-4 ring-white/20">
               {profile.profileImage ? (
                 <img src={profile.profileImage} alt={profile.displayName} className="w-full h-full object-cover" />
               ) : (
                 profile.displayName.charAt(0).toUpperCase()
               )}
             </div>
-            <label className="absolute bottom-0 right-0 w-10 h-10 bg-gradient-to-br from-purple-600 to-pink-600 rounded-full flex items-center justify-center cursor-pointer hover:scale-110 transition-all shadow-lg">
+            <label className="absolute bottom-0 right-0 w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center cursor-pointer hover:scale-110 transition-all shadow-lg">
               <Camera size={20} className="text-white" />
               <input
                 type="file"
@@ -304,13 +304,13 @@ export default function Profile() {
                   type="text"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  className="w-full px-5 py-3 glass rounded-2xl border-2 border-purple-500/30 text-white font-bold text-lg placeholder-purple-300/50"
+                  className="w-full px-5 py-3 glass rounded-2xl border-2 border-purple-400/30 text-white font-bold text-lg placeholder-purple-200/50"
                   placeholder="Display Name"
                 />
                 <textarea
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
-                  className="w-full px-5 py-3 glass rounded-2xl border-2 border-purple-500/30 text-white font-medium placeholder-purple-300/50 resize-none"
+                  className="w-full px-5 py-3 glass rounded-2xl border-2 border-purple-400/30 text-white font-medium placeholder-purple-200/50 resize-none"
                   placeholder="Bio - Tell your story..."
                   rows={3}
                 />
@@ -320,7 +320,7 @@ export default function Profile() {
                 <h2 className="text-3xl font-black text-white neon-text">
                   {profile.displayName}
                 </h2>
-                <p className="text-purple-200 mt-2 text-lg font-medium">{profile.bio || 'No bio yet - add your vibe! ✨'}</p>
+                <p className="text-purple-100 mt-2 text-lg font-medium">{profile.bio || 'No bio yet - add your vibe!'}</p>
               </>
             )}
 
@@ -328,22 +328,22 @@ export default function Profile() {
             <div className="flex gap-8 mt-6">
               <div className="text-center">
                 <div className="font-black text-white text-2xl gradient-text">{userStories.length}</div>
-                <div className="text-purple-300 text-sm font-bold">Stories</div>
+                <div className="text-purple-200 text-sm font-bold">Stories</div>
               </div>
               <div className="text-center">
                 <div className="font-black text-white text-2xl gradient-text">{profile.followers.length}</div>
-                <div className="text-purple-300 text-sm font-bold">Followers</div>
+                <div className="text-purple-200 text-sm font-bold">Followers</div>
               </div>
               <div className="text-center">
                 <div className="font-black text-white text-2xl gradient-text">{profile.following.length}</div>
-                <div className="text-purple-300 text-sm font-bold">Following</div>
+                <div className="text-purple-200 text-sm font-bold">Following</div>
               </div>
             </div>
 
             {/* Edit Button */}
             <button
               onClick={editing ? handleSaveProfile : () => setEditing(true)}
-              className="mt-6 px-8 py-3 bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 text-white font-black rounded-full hover:shadow-2xl transform hover:scale-105 transition-all flex items-center gap-3 neon-glow"
+              className="mt-6 px-8 py-3 bg-gradient-to-r from-purple-500 via-pink-600 to-orange-500 text-white font-black rounded-full hover:shadow-2xl transform hover:scale-105 transition-all flex items-center gap-3 neon-glow"
             >
               {editing ? (
                 <>
@@ -416,7 +416,7 @@ export default function Profile() {
                             <div className="flex gap-2">
                               <button
                                 onClick={() => handleEditStory(story)}
-                                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm font-semibold flex items-center gap-1"
+                                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 rounded-lg text-sm font-semibold flex items-center gap-1"
                               >
                                 <Edit2 size={14} /> Edit
                               </button>
@@ -432,7 +432,7 @@ export default function Profile() {
                       </div>
                     </>
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 flex items-center justify-center text-white p-4 text-sm">
+                    <div className="w-full h-full bg-gradient-to-br from-purple-400 via-pink-500 to-orange-500 flex items-center justify-center text-white p-4 text-sm">
                       {story.content}
                     </div>
                   )}

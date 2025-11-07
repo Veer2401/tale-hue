@@ -76,18 +76,18 @@ export default function Community() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500 border-t-transparent"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-400 border-t-transparent"></div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <h2 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100 mb-8">
+    <div className="max-w-4xl mx-auto p-4 md:p-6">
+      <h2 className="text-2xl md:text-3xl font-bold text-zinc-900 dark:text-zinc-100 mb-6 md:mb-8">
         Discover Creators
       </h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         {users.map((userProfile) => (
           <div
             key={userProfile.userID}
@@ -95,7 +95,7 @@ export default function Community() {
           >
             {/* Profile Image */}
             <div className="flex flex-col items-center">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 flex items-center justify-center text-white text-2xl font-bold mb-3 overflow-hidden">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-400 via-pink-500 to-orange-500 flex items-center justify-center text-white text-2xl font-bold mb-3 overflow-hidden">
                 {userProfile.profileImage ? (
                   <img src={userProfile.profileImage} alt={userProfile.displayName} className="w-full h-full object-cover" />
                 ) : (
@@ -133,7 +133,7 @@ export default function Community() {
                   className={`mt-4 w-full py-2 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
                     profile?.following.includes(userProfile.userID)
                       ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
-                      : 'bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 text-white hover:shadow-lg'
+                      : 'bg-gradient-to-r from-purple-400 via-pink-500 to-orange-500 text-white hover:shadow-lg'
                   }`}
                 >
                   {profile?.following.includes(userProfile.userID) ? (

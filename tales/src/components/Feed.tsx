@@ -118,12 +118,45 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
     if (!storyId) return;
 
     const isCurrentlyLiked = userLikes.has(storyId);
-    console.log('handleLike called:', { storyId, isCurrentlyLiked, userId: user.uid });
+    
+    // Optimistic update - Update UI immediately
+    setUserLikes(prev => {
+      const newSet = new Set(prev);
+      if (isCurrentlyLiked) {
+        newSet.delete(storyId);
+      } else {
+        newSet.add(storyId);
+      }
+      return newSet;
+    });
+
+    // Optimistically update the story count in the UI
+    setStories(prevStories => 
+      prevStories.map(story => 
+        story.storyID === storyId 
+          ? { 
+              ...story, 
+              likesCount: isCurrentlyLiked 
+                ? Math.max(0, (story.likesCount || 0) - 1)
+                : (story.likesCount || 0) + 1 
+            }
+          : story
+      )
+    );
+
+    // Also update detail story if it's open
+    if (detailStory?.storyID === storyId) {
+      setDetailStory(prev => prev ? {
+        ...prev,
+        likesCount: isCurrentlyLiked 
+          ? Math.max(0, (prev.likesCount || 0) - 1)
+          : (prev.likesCount || 0) + 1
+      } : null);
+    }
 
     // Prevent action if already in the desired state
     if (isCurrentlyLiked) {
       // User wants to unlike
-      console.log('Unliking post...');
       try {
         const likesQuery = query(
           collection(db, 'likes'),
@@ -133,7 +166,6 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
         const likesSnapshot = await getDocs(likesQuery);
         
         if (!likesSnapshot.empty) {
-          console.log('Found like document, deleting...');
           await deleteDoc(doc(db, 'likes', likesSnapshot.docs[0].id));
           
           // Update story likes count (ensure it doesn't go below 0)
@@ -156,14 +188,31 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
               });
             }
           }
-          console.log('Unlike completed');
         }
       } catch (error) {
         console.error('Error unliking:', error);
+        // Revert optimistic update on error
+        setUserLikes(prev => {
+          const newSet = new Set(prev);
+          newSet.add(storyId);
+          return newSet;
+        });
+        setStories(prevStories => 
+          prevStories.map(story => 
+            story.storyID === storyId 
+              ? { ...story, likesCount: (story.likesCount || 0) + 1 }
+              : story
+          )
+        );
+        if (detailStory?.storyID === storyId) {
+          setDetailStory(prev => prev ? {
+            ...prev,
+            likesCount: (prev.likesCount || 0) + 1
+          } : null);
+        }
       }
     } else {
       // User wants to like - only allow if not already liked
-      console.log('Liking post...');
       try {
         // Double check they haven't already liked it
         const likesQuery = query(
@@ -179,7 +228,6 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
             userID: user.uid,
             createdAt: serverTimestamp()
           });
-          console.log('Like document created');
 
           // Update story likes count
           const storyQuery = query(collection(db, 'posts'), where('storyID', '==', storyId));
@@ -189,14 +237,29 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
             await updateDoc(storyDocRef, {
               likesCount: increment(1)
             });
-            console.log('Like count updated');
           }
-          console.log('Like completed');
-        } else {
-          console.log('Already liked - preventing duplicate');
         }
       } catch (error) {
         console.error('Error liking:', error);
+        // Revert optimistic update on error
+        setUserLikes(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(storyId);
+          return newSet;
+        });
+        setStories(prevStories => 
+          prevStories.map(story => 
+            story.storyID === storyId 
+              ? { ...story, likesCount: Math.max(0, (story.likesCount || 0) - 1) }
+              : story
+          )
+        );
+        if (detailStory?.storyID === storyId) {
+          setDetailStory(prev => prev ? {
+            ...prev,
+            likesCount: Math.max(0, (prev.likesCount || 0) - 1)
+          } : null);
+        }
       }
     }
   };
@@ -347,90 +410,103 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500 border-t-transparent"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-400 border-t-transparent"></div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
+    <div className="max-w-7xl mx-auto p-4 md:p-6">
       {stories.length === 0 ? (
-        <div className="text-center py-20">
-          <div className="max-w-md mx-auto glass p-12 rounded-3xl border border-purple-500/20">
-            <div className="w-28 h-28 mx-auto mb-6 rounded-full bg-gradient-to-br from-purple-600 via-pink-600 to-orange-500 flex items-center justify-center shadow-2xl neon-glow">
-              <PlusCircle size={56} className="text-white" />
+        <div className="text-center py-12 md:py-20">
+          <div className="max-w-md mx-auto glass p-8 md:p-12 rounded-3xl border border-purple-400/20">
+            <div className="w-20 h-20 md:w-28 md:h-28 mx-auto mb-4 md:mb-6 rounded-full bg-gradient-to-br from-purple-500 via-pink-600 to-orange-500 flex items-center justify-center shadow-2xl neon-glow">
+              <PlusCircle size={40} className="text-white md:hidden" />
+              <PlusCircle size={56} className="text-white hidden md:block" />
             </div>
-            <h3 className="text-3xl font-black text-white mb-4 neon-text">
+            <h3 className="text-2xl md:text-3xl font-black text-white mb-3 md:mb-4 neon-text">
               No stories yet!
             </h3>
-            <p className="text-purple-200 mb-8 text-lg">
-              Be the first to post some fire content! ✨
+                        <p className="text-purple-200 text-lg font-medium">
+              Be the first to post some fire content!
             </p>
             <button
               onClick={onNavigateToCreate}
-              className="px-10 py-5 bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 text-white font-black text-lg rounded-full hover:shadow-2xl transform hover:scale-110 transition-all flex items-center gap-3 mx-auto neon-glow"
+              className="px-8 md:px-10 py-4 md:py-5 bg-gradient-to-r from-purple-500 via-pink-600 to-orange-500 text-white font-black text-base md:text-lg rounded-full hover:shadow-2xl transform hover:scale-110 transition-all flex items-center gap-2 md:gap-3 mx-auto neon-glow"
             >
-              <PlusCircle size={24} />
+              <PlusCircle size={20} className="md:hidden" />
+              <PlusCircle size={24} className="hidden md:block" />
               Create Your Vibe
             </button>
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {stories.map((story) => (
             <div
               key={story.storyID}
-              onClick={() => openStoryDetail(story)}
-              className="glass rounded-2xl shadow-xl overflow-hidden border border-white/10 hover:border-purple-500/50 transition-all duration-300 transform hover:scale-105 cursor-pointer group"
+              className="glass rounded-2xl shadow-xl overflow-hidden border border-white/10 hover:border-purple-400/50 transition-all duration-300 transform hover:scale-105 cursor-pointer group"
             >
+              {/* User Info Header */}
+              <div className="p-3 border-b border-white/10 bg-gradient-to-r from-purple-900/20 via-pink-900/20 to-orange-900/20">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 via-pink-600 to-orange-500 flex items-center justify-center text-white font-black text-xs shadow-lg ring-2 ring-white/20 overflow-hidden">
+                    {story.profile?.profileImage ? (
+                      <img 
+                        src={story.profile.profileImage} 
+                        alt={story.profile.displayName}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      story.profile?.displayName.charAt(0).toUpperCase() || 'A'
+                    )}
+                  </div>
+                  <p className="font-bold text-white text-sm">
+                    {story.profile?.displayName || 'Anonymous'}
+                  </p>
+                </div>
+              </div>
+
               {/* Story Image */}
               {story.imageURL && (
-                <div className="relative aspect-square overflow-hidden">
+                <div className="relative aspect-square overflow-hidden" onClick={() => openStoryDetail(story)}>
                   <img
                     src={story.imageURL}
                     alt={story.content}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
-                  
-                  {/* User Info Overlay */}
-                  <div className="absolute top-3 left-3 flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 via-pink-600 to-orange-500 flex items-center justify-center text-white font-black text-xs shadow-lg ring-2 ring-white/30">
-                      {story.profile?.displayName.charAt(0).toUpperCase() || 'A'}
-                    </div>
-                    <p className="font-bold text-white text-sm drop-shadow-lg">
-                      {story.profile?.displayName || 'Anonymous'}
-                    </p>
-                  </div>
-
-                  {/* Quick Actions Overlay */}
-                  <div className="absolute bottom-3 left-3 right-3">
-                    <p className="text-white text-sm mb-3 leading-tight font-medium line-clamp-2 drop-shadow-lg">
-                      {story.content}
-                    </p>
-                    <div className="flex items-center gap-4">
-                      <button
-                        onClick={(e) => handleQuickLike(e, story.storyID)}
-                        className={`flex items-center gap-1.5 transition-all duration-300 ${
-                          userLikes.has(story.storyID)
-                            ? 'text-pink-400' 
-                            : 'text-white/80 hover:text-pink-400'
-                        }`}
-                      >
-                        <Heart size={18} fill={userLikes.has(story.storyID) ? 'currentColor' : 'none'} strokeWidth={2.5} />
-                        <span className="font-bold text-sm">{story.likesCount || 0}</span>
-                      </button>
-                      <button 
-                        onClick={(e) => handleQuickComment(e, story)}
-                        className="flex items-center gap-1.5 text-white/80 hover:text-cyan-400 transition-all duration-300"
-                      >
-                        <MessageCircle size={18} strokeWidth={2.5} />
-                        <span className="font-bold text-sm">{story.commentsCount || 0}</span>
-                      </button>
-                    </div>
-                  </div>
                 </div>
               )}
+
+              {/* Story Footer - Description and Actions */}
+              <div className="p-3 border-t border-white/10 bg-gradient-to-r from-purple-900/10 via-pink-900/10 to-orange-900/10">
+                {/* Action Buttons */}
+                <div className="flex items-center gap-4 mb-2">
+                  <button
+                    onClick={(e) => handleQuickLike(e, story.storyID)}
+                    className={`flex items-center gap-1.5 transition-all duration-300 ${
+                      userLikes.has(story.storyID)
+                        ? 'text-pink-400' 
+                        : 'text-white/80 hover:text-pink-400'
+                    }`}
+                  >
+                    <Heart size={20} fill={userLikes.has(story.storyID) ? 'currentColor' : 'none'} strokeWidth={2.5} />
+                    <span className="font-bold text-sm">{story.likesCount || 0}</span>
+                  </button>
+                  <button 
+                    onClick={(e) => handleQuickComment(e, story)}
+                    className="flex items-center gap-1.5 text-white/80 hover:text-purple-400 transition-all duration-300"
+                  >
+                    <MessageCircle size={20} strokeWidth={2.5} />
+                    <span className="font-bold text-sm">{story.commentsCount || 0}</span>
+                  </button>
+                </div>
+
+                {/* Story Description */}
+                <p className="text-white text-sm leading-tight font-medium line-clamp-2">
+                  {story.content}
+                </p>
+              </div>
             </div>
           ))}
         </div>
@@ -438,38 +514,47 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
 
       {/* Story Detail Modal */}
       {detailStory && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-lg flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
-          <div className="glass rounded-3xl max-w-5xl w-full max-h-[90vh] flex flex-col md:flex-row shadow-2xl border border-purple-500/30 overflow-hidden">
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-lg flex items-center justify-center z-50 p-0 md:p-4 animate-in fade-in duration-300">
+          <div className="glass rounded-none md:rounded-3xl max-w-5xl w-full h-full md:h-auto md:max-h-[90vh] flex flex-col md:flex-row shadow-2xl border-0 md:border border-purple-400/30 overflow-hidden">
             {/* Left: Image Section */}
-            <div className="md:w-1/2 bg-black flex items-center justify-center relative">
+            <div className="md:w-1/2 bg-black flex items-center justify-center relative max-h-[50vh] md:max-h-none">
               <button
                 onClick={closeStoryDetail}
-                className="absolute top-4 right-4 p-3 bg-black/60 hover:bg-black/80 rounded-full transition-all duration-300 transform hover:rotate-90 z-10 backdrop-blur-sm"
+                className="absolute top-2 md:top-4 right-2 md:right-4 p-2 md:p-3 bg-black/60 hover:bg-black/80 rounded-full transition-all duration-300 transform hover:rotate-90 z-10 backdrop-blur-sm"
               >
-                <X size={24} className="text-white" />
+                <X size={20} className="text-white md:hidden" />
+                <X size={24} className="text-white hidden md:block" />
               </button>
               {detailStory.imageURL && (
                 <img
                   src={detailStory.imageURL}
                   alt={detailStory.content}
-                  className="w-full h-full object-contain max-h-[90vh]"
+                  className="w-full h-full object-contain"
                 />
               )}
             </div>
 
             {/* Right: Details & Comments Section */}
-            <div className="md:w-1/2 flex flex-col bg-gradient-to-br from-zinc-900/95 to-zinc-950/95 backdrop-blur-xl">
+            <div className="md:w-1/2 flex flex-col bg-gradient-to-br from-zinc-900/95 to-zinc-950/95 backdrop-blur-xl overflow-y-auto">
               {/* User Info Header */}
-              <div className="p-6 border-b border-white/10 bg-gradient-to-r from-purple-900/20 via-pink-900/20 to-orange-900/20">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-600 via-pink-600 to-orange-500 flex items-center justify-center text-white font-black text-lg shadow-lg ring-2 ring-white/20">
-                    {detailStory.profile?.displayName.charAt(0).toUpperCase() || 'A'}
+              <div className="p-4 md:p-6 border-b border-white/10 bg-gradient-to-r from-purple-900/20 via-pink-900/20 to-orange-900/20">
+                <div className="flex items-center gap-3 md:gap-4">
+                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-purple-500 via-pink-600 to-orange-500 flex items-center justify-center text-white font-black text-base md:text-lg shadow-lg ring-2 ring-white/20 overflow-hidden">
+                    {detailStory.profile?.profileImage ? (
+                      <img 
+                        src={detailStory.profile.profileImage} 
+                        alt={detailStory.profile.displayName}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      detailStory.profile?.displayName.charAt(0).toUpperCase() || 'A'
+                    )}
                   </div>
                   <div>
                     <p className="font-black text-white text-lg">
                       {detailStory.profile?.displayName || 'Anonymous'}
                     </p>
-                    <p className="text-sm text-purple-300">
+                    <p className="text-sm text-purple-200">
                       {detailStory.createdAt?.toDate?.()?.toLocaleDateString() || 'Just now'}
                     </p>
                   </div>
@@ -497,8 +582,8 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
                     </div>
                     <span className="font-bold text-lg">{detailStory.likesCount || 0}</span>
                   </button>
-                  <div className="flex items-center gap-3 text-cyan-400">
-                    <div className="p-3 rounded-full bg-cyan-400/20">
+                  <div className="flex items-center gap-3 text-purple-400">
+                    <div className="p-3 rounded-full bg-purple-400/20">
                       <MessageCircle size={22} strokeWidth={2.5} />
                     </div>
                     <span className="font-bold text-lg">{detailStory.commentsCount || 0}</span>
@@ -516,13 +601,13 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
                 <h3 className="text-xl font-black text-white mb-4">Comments 💬</h3>
                 {comments.length === 0 ? (
                   <div className="text-center py-12">
-                    <MessageCircle size={48} className="mx-auto mb-3 text-purple-400/50" />
-                    <p className="text-purple-300/70">No comments yet. Start the convo! 🔥</p>
+                    <MessageCircle size={48} className="mx-auto mb-3 text-purple-300/50" />
+                    <p className="text-purple-200/70">No comments yet. Start the convo! 🔥</p>
                   </div>
                 ) : (
                   comments.map((comment) => (
                     <div key={comment.id} className="flex gap-3 p-4 rounded-2xl bg-white/5 hover:bg-white/10 transition-all border border-white/5 group">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 via-blue-500 to-purple-500 flex items-center justify-center text-white text-sm font-black shrink-0 shadow-lg">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 via-orange-500 to-purple-400 flex items-center justify-center text-white text-sm font-black shrink-0 shadow-lg">
                         {comment.displayName?.charAt(0).toUpperCase() || 'A'}
                       </div>
                       <div className="flex-1">
@@ -544,10 +629,10 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
                               ) : (
                                 <button
                                   onClick={() => handleEditComment(comment.id, comment.content)}
-                                  className="p-1.5 hover:bg-blue-500/20 rounded-lg transition-all"
+                                  className="p-1.5 hover:bg-orange-500/20 rounded-lg transition-all"
                                   title="Edit"
                                 >
-                                  <Edit2 size={16} className="text-blue-400" />
+                                  <Edit2 size={16} className="text-orange-400" />
                                 </button>
                               )}
                               <button
@@ -566,13 +651,13 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
                             value={editedCommentText}
                             onChange={(e) => setEditedCommentText(e.target.value)}
                             onKeyPress={(e) => e.key === 'Enter' && handleSaveComment(comment.id)}
-                            className="w-full mt-1.5 px-3 py-2 glass rounded-lg text-white placeholder-purple-300/50 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium border border-white/10 text-sm"
+                            className="w-full mt-1.5 px-3 py-2 glass rounded-lg text-white placeholder-purple-200/50 focus:outline-none focus:ring-2 focus:ring-orange-500 font-medium border border-white/10 text-sm"
                             autoFocus
                           />
                         ) : (
                           <p className="text-purple-100 mt-1.5 leading-relaxed text-sm">{comment.content}</p>
                         )}
-                        <p className="text-xs text-purple-400/70 mt-1.5">
+                        <p className="text-xs text-purple-300/70 mt-1.5">
                           {comment.createdAt?.toDate?.()?.toLocaleString() || 'Just now'}
                         </p>
                       </div>
@@ -591,13 +676,13 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
                       onChange={(e) => setNewComment(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleAddComment()}
                       placeholder="Post your thoughts..."
-                      className="flex-1 px-6 py-4 glass rounded-full text-white placeholder-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium border border-white/10"
+                      className="flex-1 px-6 py-4 glass rounded-full text-white placeholder-purple-200/50 focus:outline-none focus:ring-2 focus:ring-purple-400 font-medium border border-white/10"
                       disabled={submitting}
                     />
                     <button
                       onClick={handleAddComment}
                       disabled={!newComment.trim() || submitting}
-                      className="px-8 py-4 bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 text-white rounded-full hover:shadow-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-black neon-glow"
+                      className="px-8 py-4 bg-gradient-to-r from-purple-500 via-pink-600 to-orange-500 text-white rounded-full hover:shadow-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-black neon-glow"
                     >
                       <Send size={20} />
                     </button>
@@ -613,7 +698,7 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
                         console.error('Sign-in error:', error);
                       }
                     }}
-                    className="px-8 py-4 bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 text-white rounded-full hover:shadow-2xl transition-all font-black neon-glow"
+                    className="px-8 py-4 bg-gradient-to-r from-purple-500 via-pink-600 to-orange-500 text-white rounded-full hover:shadow-2xl transition-all font-black neon-glow"
                   >
                     Sign In to Comment 💬
                   </button>
@@ -627,12 +712,12 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
       {/* Sign In Modal */}
       {showSignInModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
-          <div className="glass rounded-3xl max-w-md w-full shadow-2xl transform animate-in zoom-in-95 duration-300 border border-purple-500/30">
+          <div className="glass rounded-3xl max-w-md w-full shadow-2xl transform animate-in zoom-in-95 duration-300 border border-purple-400/30">
             {/* Header with Gradient */}
             <div className="relative overflow-hidden rounded-t-3xl">
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-600/20 via-pink-600/20 to-orange-500/20"></div>
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 via-pink-600/20 to-orange-500/20"></div>
               <div className="relative p-8 text-center">
-                <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-gradient-to-br from-purple-600 via-pink-600 to-orange-500 flex items-center justify-center shadow-2xl neon-glow">
+                <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-gradient-to-br from-purple-500 via-pink-600 to-orange-500 flex items-center justify-center shadow-2xl neon-glow">
                   {signInAction === 'like' ? (
                     <Heart size={42} className="text-white" fill="white" />
                   ) : (
@@ -642,10 +727,10 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
                 <h3 className="text-3xl font-black text-white mb-3 neon-text">
                   {signInAction === 'like' ? 'Spread the Love! 💖' : 'Join the Chat! 💬'}
                 </h3>
-                <p className="text-purple-200 text-lg">
+                <p className="text-purple-100 text-lg">
                   {signInAction === 'like' 
-                    ? 'Sign in to vibe with creators ✨'
-                    : 'Sign in to post your thoughts �'}
+                    ? 'Sign in to vibe with creators'
+                    : 'Sign in to post your thoughts 💭'}
                 </p>
               </div>
             </div>
@@ -653,19 +738,19 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
             {/* Content */}
             <div className="p-8 pt-4">
               <div className="space-y-3 mb-6">
-                <div className="flex items-center gap-3 text-sm text-purple-200">
-                  <div className="w-10 h-10 rounded-full bg-purple-600/30 flex items-center justify-center shrink-0 border border-purple-500/30">
-                    <Heart size={18} className="text-purple-400" />
+                <div className="flex items-center gap-3 text-sm text-purple-100">
+                  <div className="w-10 h-10 rounded-full bg-purple-500/30 flex items-center justify-center shrink-0 border border-purple-400/30">
+                    <Heart size={18} className="text-purple-300" />
                   </div>
                   <span className="font-medium">Like & save your fav stories</span>
                 </div>
-                <div className="flex items-center gap-3 text-sm text-purple-200">
+                <div className="flex items-center gap-3 text-sm text-purple-100">
                   <div className="w-10 h-10 rounded-full bg-pink-600/30 flex items-center justify-center shrink-0 border border-pink-500/30">
                     <MessageCircle size={18} className="text-pink-400" />
                   </div>
                   <span className="font-medium">Connect with the community</span>
                 </div>
-                <div className="flex items-center gap-3 text-sm text-purple-200">
+                <div className="flex items-center gap-3 text-sm text-purple-100">
                   <div className="w-10 h-10 rounded-full bg-orange-600/30 flex items-center justify-center shrink-0 border border-orange-500/30">
                     <Share2 size={18} className="text-orange-400" />
                   </div>
@@ -688,7 +773,7 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
                     }
                   }}
                   disabled={signingIn}
-                  className="w-full px-8 py-5 bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 text-white font-black text-lg rounded-full hover:shadow-2xl transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 neon-glow"
+                  className="w-full px-8 py-5 bg-gradient-to-r from-purple-500 via-pink-600 to-orange-500 text-white font-black text-lg rounded-full hover:shadow-2xl transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 neon-glow"
                 >
                   {signingIn ? (
                     <>
@@ -711,7 +796,7 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
                 </button>
               </div>
 
-              <p className="text-center text-xs text-purple-400/70 mt-6">
+              <p className="text-center text-xs text-purple-300/70 mt-6">
                 By signing in, you vibe with our Terms & Privacy 🤝
               </p>
             </div>

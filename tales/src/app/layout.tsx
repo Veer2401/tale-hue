@@ -11,6 +11,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Tale Hue - Stories in Color",
   description: "A modern social platform for creating and sharing short stories with AI-generated images",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
 };
 
 export default function RootLayout({

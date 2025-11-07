@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -26,6 +26,73 @@ export default function CreateStory() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // Content moderation - List of inappropriate words
+  const inappropriateWords = [
+    'sex', 'nude', 'naked', 'porn', 'xxx', 'boobs', 'breast', 'penis', 'vagina',
+    'dick', 'cock', 'pussy', 'fuck', 'shit', 'ass', 'bitch', 'damn', 'hell',
+    'bastard', 'slut', 'whore', 'rape', 'kill', 'murder', 'death', 'suicide',
+    'drug', 'cocaine', 'heroin', 'meth', 'weed', 'marijuana', 'violence', 'blood',
+    'gore', 'nsfw', 'adult', 'sexual', 'erotic', 'fetish', 'kinky'
+  ];
+
+  // Function to check if content contains inappropriate words
+  const containsInappropriateContent = (text: string): boolean => {
+    const lowerText = text.toLowerCase();
+    return inappropriateWords.some(word => {
+      // Check for whole word matches to avoid false positives
+      const regex = new RegExp(`\\b${word}\\b`, 'i');
+      return regex.test(lowerText);
+    });
+  };
+
+  // Load persisted data on component mount
+  useEffect(() => {
+    const savedContent = localStorage.getItem('talehue_draft_content');
+    const savedImage = localStorage.getItem('talehue_draft_image');
+    
+    if (savedContent) {
+      setContent(savedContent);
+    }
+    
+    if (savedImage) {
+      // Validate that it's a proper data URL before trying to fetch
+      if (savedImage.startsWith('blob:') || savedImage.startsWith('data:image/')) {
+        setPreviewImage(savedImage);
+        // Convert base64 back to blob
+        fetch(savedImage)
+          .then(res => res.blob())
+          .then(blob => setImageBlob(blob))
+          .catch(err => {
+            console.error('Error loading saved image:', err);
+            // Clear invalid image from localStorage
+            localStorage.removeItem('talehue_draft_image');
+            setPreviewImage(null);
+          });
+      } else {
+        // Invalid format, clear it
+        localStorage.removeItem('talehue_draft_image');
+      }
+    }
+  }, []);
+
+  // Persist content to localStorage
+  useEffect(() => {
+    if (content) {
+      localStorage.setItem('talehue_draft_content', content);
+    } else {
+      localStorage.removeItem('talehue_draft_content');
+    }
+  }, [content]);
+
+  // Persist image to localStorage
+  useEffect(() => {
+    if (previewImage) {
+      localStorage.setItem('talehue_draft_image', previewImage);
+    } else {
+      localStorage.removeItem('talehue_draft_image');
+    }
+  }, [previewImage]);
+
   // Predefined suggestions
   const suggestions = [
     "Sunset beach café vibe",
@@ -45,6 +112,12 @@ export default function CreateStory() {
       } catch (err) {
         setError('Failed to sign in. Please try again.');
       }
+      return;
+    }
+
+    // Check for inappropriate content
+    if (containsInappropriateContent(suggestion)) {
+      setError('⚠️ Cannot generate story: Content contains inappropriate or disallowed words. Please use respectful language.');
       return;
     }
 
@@ -95,8 +168,15 @@ export default function CreateStory() {
         
         console.log('High-quality image loaded successfully, size:', imageBlob.size, 'bytes');
         
-        const previewURL = URL.createObjectURL(imageBlob);
-        setPreviewImage(previewURL);
+        // Convert blob to base64 for storage (suggestion click path)
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (typeof reader.result === 'string') {
+            setPreviewImage(reader.result);
+          }
+        };
+        reader.readAsDataURL(imageBlob);
+        
         setImageBlob(imageBlob);
       } else {
         throw new Error('Failed to generate image');
@@ -123,6 +203,13 @@ export default function CreateStory() {
 
     if (!content.trim() || content.length > 150) {
       setError('Story must be between 1 and 150 characters');
+      return;
+    }
+
+    // Check for inappropriate content
+    if (containsInappropriateContent(content)) {
+      setError('⚠️ Cannot generate image: Content contains inappropriate or disallowed words. Please use respectful language.');
+      setGenerating(false);
       return;
     }
 
@@ -174,8 +261,15 @@ export default function CreateStory() {
         
         console.log('High-quality image loaded successfully, size:', imageBlob.size, 'bytes');
         
-        const previewURL = URL.createObjectURL(imageBlob);
-        setPreviewImage(previewURL);
+        // Convert blob to base64 for storage (main generate path)
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (typeof reader.result === 'string') {
+            setPreviewImage(reader.result);
+          }
+        };
+        reader.readAsDataURL(imageBlob);
+        
         setImageBlob(imageBlob);
       } else {
         throw new Error('Failed to generate image');
@@ -197,6 +291,8 @@ export default function CreateStory() {
     setPreviewImage(null);
     setImageBlob(null);
     setError(null);
+    // Clear localStorage when regenerating
+    localStorage.removeItem('talehue_draft_image');
   };
 
   const uploadStory = async (imageBlob: Blob) => {
@@ -245,13 +341,15 @@ export default function CreateStory() {
       
       console.log('Post created successfully!');
 
-      // Reset form
+      // Clear localStorage and reset form
+      localStorage.removeItem('talehue_draft_content');
+      localStorage.removeItem('talehue_draft_image');
       setContent('');
       setPreviewImage(null);
       setImageBlob(null);
       
       // Show success message with beautiful UI
-      setSuccessMessage('✨ Your story was posted successfully!');
+      setSuccessMessage('Your story was posted successfully!');
       setTimeout(() => setSuccessMessage(null), 3000);
       
     } catch (error: any) {
@@ -265,26 +363,28 @@ export default function CreateStory() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto p-6">
+    <div className="max-w-3xl mx-auto p-4 md:p-6">
       {/* Success Toast */}
       {successMessage && (
-        <div className="fixed top-6 right-6 z-50 animate-slide-in">
-          <div className="glass rounded-2xl px-6 py-4 border border-green-500/50 shadow-2xl flex items-center gap-3 neon-glow">
-            <CheckCircle className="text-green-400" size={24} />
-            <p className="text-white font-bold">{successMessage}</p>
+        <div className="fixed top-4 md:top-6 right-4 md:right-6 left-4 md:left-auto z-50 animate-slide-in">
+          <div className="glass rounded-2xl px-4 md:px-6 py-3 md:py-4 border border-green-500/50 shadow-2xl flex items-center gap-2 md:gap-3 neon-glow">
+            <CheckCircle className="text-green-400" size={20} />
+            <CheckCircle className="text-green-400 hidden md:block" size={24} />
+            <p className="text-white font-bold text-sm md:text-base">{successMessage}</p>
           </div>
         </div>
       )}
 
-      <div className="glass rounded-3xl shadow-2xl p-10 border border-purple-500/30">
+      <div className="glass rounded-3xl shadow-2xl p-6 md:p-10 border border-purple-400/30">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-600 via-pink-600 to-orange-500 flex items-center justify-center shadow-xl neon-glow">
-            <Sparkles className="text-white" size={32} />
+        <div className="flex items-center gap-3 md:gap-4 mb-6 md:mb-8">
+          <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-gradient-to-br from-purple-500 via-pink-600 to-orange-500 flex items-center justify-center shadow-xl neon-glow">
+            <Sparkles className="text-white" size={24} />
+            <Sparkles className="text-white hidden md:block" size={32} />
           </div>
           <div>
-            <h2 className="text-3xl font-black text-white neon-text">Create Your Vibe ✨</h2>
-            <p className="text-sm text-purple-300 font-medium">Post your story in 150 chars max 🔥</p>
+            <h2 className="text-2xl md:text-3xl font-black text-white neon-text">Create Your Vibe</h2>
+            <p className="text-xs md:text-sm text-purple-200 font-medium">Post your story in 150 chars max 🔥</p>
           </div>
         </div>
 
@@ -295,44 +395,25 @@ export default function CreateStory() {
             onChange={(e) => setContent(e.target.value)}
             maxLength={150}
             placeholder="What's your story? Make it lit... 🚀"
-            className="w-full h-40 p-6 glass rounded-3xl border-2 border-purple-500/30 focus:border-purple-500 focus:outline-none text-white text-lg resize-none placeholder-purple-300/50 font-medium backdrop-blur-xl"
+            className="w-full h-32 md:h-40 p-4 md:p-6 glass rounded-3xl border-2 border-purple-400/30 focus:border-purple-400 focus:outline-none text-white text-base md:text-lg resize-none placeholder-purple-200/50 font-medium backdrop-blur-xl"
           />
           <div className="flex justify-between items-center mt-3">
-            <span className="text-sm text-purple-300 font-bold">
+            <span className="text-xs md:text-sm text-purple-200 font-bold">
               {content.length}/150 characters
             </span>
             {content.length > 0 && (
-              <span className={`text-sm font-black ${content.length > 150 ? 'text-red-400' : 'text-green-400'}`}>
+              <span className={`text-xs md:text-sm font-black ${content.length > 150 ? 'text-red-400' : 'text-green-400'}`}>
                 {content.length > 150 ? '❌ Too long bestie' : '✓ Perfect vibe'}
               </span>
             )}
           </div>
         </div>
 
-        {/* Image Preview */}
-        {previewImage && (
-          <div className="mb-6">
-            <div className="relative rounded-3xl overflow-hidden border-4 border-purple-500 shadow-2xl neon-glow">
-              <img 
-                src={previewImage} 
-                alt="Generated story preview" 
-                className="w-full aspect-square object-cover"
-              />
-              <div className="absolute top-4 right-4 px-4 py-2 bg-black/60 backdrop-blur-md rounded-full">
-                <p className="text-xs text-white font-bold">AI Generated</p>
-              </div>
-            </div>
-            <p className="text-xs text-purple-300 text-center mt-3 font-medium">
-              Your masterpiece awaits! 🌟
-            </p>
-          </div>
-        )}
-
         {/* Error Message */}
         {(error || authError) && (
           <div className="mb-6 p-5 bg-red-500/10 border-2 border-red-500/30 rounded-2xl backdrop-blur-sm">
             <p className="text-sm text-red-300 font-bold">
-              ⚠️ {error || authError}
+              {error || authError}
             </p>
           </div>
         )}
@@ -340,14 +421,14 @@ export default function CreateStory() {
         {/* Quick Suggestions */}
         {!previewImage && (
           <div className="mb-6">
-            <p className="text-sm text-purple-300 font-bold mb-3">✨ Quick Ideas:</p>
+            <p className="text-sm text-purple-200 font-bold mb-3">Quick Ideas:</p>
             <div className="flex flex-wrap gap-2">
               {suggestions.map((suggestion, index) => (
                 <button
                   key={index}
                   onClick={() => handleSuggestionClick(suggestion)}
                   disabled={generating}
-                  className="px-4 py-2 glass border border-purple-500/30 hover:border-purple-500 text-purple-200 hover:text-white text-sm font-medium rounded-full transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                  className="px-4 py-2 glass border border-purple-400/30 hover:border-purple-400 text-purple-100 hover:text-white text-sm font-medium rounded-full transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                 >
                   {suggestion}
                 </button>
@@ -356,12 +437,62 @@ export default function CreateStory() {
           </div>
         )}
 
-        {/* Generate Button or Post/Regenerate Buttons */}
-        {!previewImage ? (
+        {/* Image Preview with Side Buttons */}
+        {previewImage ? (
+          <div className="mb-6">
+            <div className="flex flex-col md:flex-row gap-4 items-center md:items-start">
+              {/* Image */}
+              <div className="flex-shrink-0 w-full md:w-auto">
+                <div className="relative rounded-3xl overflow-hidden border-4 border-purple-400 shadow-2xl neon-glow max-w-sm mx-auto md:mx-0">
+                  <img 
+                    src={previewImage} 
+                    alt="Generated story preview" 
+                    className="w-full aspect-square object-cover"
+                  />
+                  <div className="absolute top-4 right-4 px-4 py-2 bg-black/60 backdrop-blur-md rounded-full">
+                    <p className="text-xs text-white font-bold">AI Generated</p>
+                  </div>
+                </div>
+                <p className="text-xs text-purple-200 text-center mt-3 font-medium">
+                  Your masterpiece awaits! 🌟
+                </p>
+              </div>
+
+              {/* Buttons on the right */}
+              <div className="flex flex-col gap-4 w-full md:w-auto md:min-w-[200px] justify-center">
+                <button
+                  onClick={handleGenerateAgain}
+                  disabled={uploading}
+                  className="py-5 px-6 glass border-2 border-white/20 text-white font-black text-lg rounded-full hover:bg-white/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 transform hover:scale-105"
+                >
+                  <RefreshCw size={24} />
+                  Remix It
+                </button>
+                <button
+                  onClick={handlePost}
+                  disabled={uploading}
+                  className="py-5 px-6 bg-gradient-to-r from-green-500 via-emerald-500 to-purple-500 text-white font-black text-lg rounded-full hover:shadow-2xl transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 neon-glow"
+                >
+                  {uploading ? (
+                    <>
+                      <Loader2 className="animate-spin" size={24} />
+                      Posting...
+                    </>
+                  ) : (
+                    <>
+                      <Send size={24} />
+                      Post 🔥
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
           <button
             onClick={handleGenerateImage}
             disabled={generating || uploading || !content.trim() || content.length > 150}
-            className="w-full py-6 px-8 bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 text-white font-black text-xl rounded-full hover:shadow-2xl transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-4 neon-glow"
+            className="w-full py-6 px-8 bg-gradient-to-r from-purple-500 via-pink-600 to-orange-500 text-white font-black text-xl rounded-full hover:shadow-2xl transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-4 neon-glow"
           >
             {generating ? (
               <>
@@ -380,34 +511,6 @@ export default function CreateStory() {
               </>
             )}
           </button>
-        ) : (
-          <div className="flex gap-4">
-            <button
-              onClick={handleGenerateAgain}
-              disabled={uploading}
-              className="flex-1 py-5 px-6 glass border-2 border-white/20 text-white font-black text-lg rounded-full hover:bg-white/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 transform hover:scale-105"
-            >
-              <RefreshCw size={24} />
-              Remix It
-            </button>
-            <button
-              onClick={handlePost}
-              disabled={uploading}
-              className="flex-1 py-5 px-6 bg-gradient-to-r from-green-500 via-emerald-500 to-cyan-500 text-white font-black text-lg rounded-full hover:shadow-2xl transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 neon-glow"
-            >
-              {uploading ? (
-                <>
-                  <Loader2 className="animate-spin" size={24} />
-                  Posting...
-                </>
-              ) : (
-                <>
-                  <Send size={24} />
-                  Post 🔥
-                </>
-              )}
-            </button>
-          </div>
         )}
       </div>
     </div>

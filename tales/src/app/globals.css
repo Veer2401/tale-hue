@@ -1,13 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  --background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --background: linear-gradient(135deg, #a855f7 0%, #ec4899 50%, #f97316 100%);
   --foreground: #ffffff;
   --card-bg: rgba(255, 255, 255, 0.95);
-  --accent-1: #667eea;
-  --accent-2: #764ba2;
-  --accent-3: #f093fb;
-  --accent-4: #4facfe;
+  --accent-1: #a855f7;
+  --accent-2: #ec4899;
+  --accent-3: #f97316;
+  --accent-4: #8b5cf6;
 }
 
 @theme inline {
@@ -17,19 +17,19 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    --background: linear-gradient(135deg, #0a0e27 0%, #16213e 50%, #1a1a2e 100%);
     --foreground: #ffffff;
     --card-bg: rgba(26, 26, 46, 0.95);
   }
 }
 
 body {
-  background: #0f0f23;
+  background: #0a0e27;
   background-image: 
-    radial-gradient(at 0% 0%, rgba(102, 126, 234, 0.15) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(240, 147, 251, 0.15) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(79, 172, 254, 0.15) 0px, transparent 50%),
-    radial-gradient(at 0% 100%, rgba(118, 75, 162, 0.15) 0px, transparent 50%);
+    radial-gradient(at 0% 0%, rgba(168, 85, 247, 0.2) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(249, 115, 22, 0.2) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(139, 92, 246, 0.15) 0px, transparent 50%);
   color: var(--foreground);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   position: relative;
@@ -39,10 +39,10 @@ body {
   body {
     background: #fafafa;
     background-image: 
-      radial-gradient(at 0% 0%, rgba(102, 126, 234, 0.08) 0px, transparent 50%),
-      radial-gradient(at 100% 0%, rgba(240, 147, 251, 0.08) 0px, transparent 50%),
-      radial-gradient(at 100% 100%, rgba(79, 172, 254, 0.08) 0px, transparent 50%),
-      radial-gradient(at 0% 100%, rgba(118, 75, 162, 0.08) 0px, transparent 50%);
+      radial-gradient(at 0% 0%, rgba(168, 85, 247, 0.1) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.08) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(249, 115, 22, 0.1) 0px, transparent 50%),
+      radial-gradient(at 0% 100%, rgba(139, 92, 246, 0.08) 0px, transparent 50%);
   }
 }
 
@@ -53,25 +53,25 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(102, 126, 234, 0.05);
+  background: rgba(10, 14, 39, 0.8);
   border-radius: 9999px;
 }
 
 @media (prefers-color-scheme: dark) {
   ::-webkit-scrollbar-track {
-    background: rgba(15, 15, 35, 0.8);
+    background: rgba(10, 14, 39, 0.9);
   }
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #a855f7 0%, #ec4899 50%, #f97316 100%);
   border-radius: 9999px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, #f093fb 0%, #4facfe 100%);
+  background: linear-gradient(135deg, #a855f7 0%, #ec4899 50%, #f97316 100%);
   background-clip: padding-box;
 }
 
@@ -113,7 +113,7 @@ body {
 
 /* Gradient text */
 .gradient-text {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+  background: linear-gradient(135deg, #a855f7 0%, #ec4899 50%, #f97316 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -122,16 +122,16 @@ body {
 /* Neon glow effect */
 .neon-glow {
   box-shadow: 
-    0 0 20px rgba(102, 126, 234, 0.4),
-    0 0 40px rgba(118, 75, 162, 0.3),
-    0 0 60px rgba(240, 147, 251, 0.2);
+    0 0 20px rgba(168, 85, 247, 0.5),
+    0 0 40px rgba(236, 72, 153, 0.3),
+    0 0 60px rgba(249, 115, 22, 0.2);
 }
 
 .neon-text {
   text-shadow: 
-    0 0 10px rgba(102, 126, 234, 0.8),
-    0 0 20px rgba(118, 75, 162, 0.6),
-    0 0 30px rgba(240, 147, 251, 0.4);
+    0 0 10px rgba(168, 85, 247, 0.8),
+    0 0 20px rgba(236, 72, 153, 0.6),
+    0 0 30px rgba(249, 115, 22, 0.4);
 }
 
 /* Slide-in animation for notifications */

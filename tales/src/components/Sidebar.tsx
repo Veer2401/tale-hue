@@ -1,11 +1,11 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { Home, PlusSquare, UserCircle, Globe, LogOut, LogIn } from 'lucide-react';
+import { Home, PlusSquare, UserCircle, Globe, LogOut, LogIn, Info } from 'lucide-react';
 import { useState } from 'react';
 
 interface SidebarProps {
-  onNavigate: (view: 'feed' | 'create' | 'profile' | 'followers') => void;
+  onNavigate: (view: 'feed' | 'create' | 'profile' | 'followers' | 'about') => void;
   currentView: string;
 }
 
@@ -29,6 +29,7 @@ export default function Sidebar({ onNavigate, currentView }: SidebarProps) {
     { icon: PlusSquare, label: 'Create Story', view: 'create' as const },
     { icon: Globe, label: 'Community', view: 'followers' as const },
     { icon: UserCircle, label: 'Profile', view: 'profile' as const },
+    { icon: Info, label: 'About', view: 'about' as const },
   ];
 
   return (
@@ -37,28 +38,28 @@ export default function Sidebar({ onNavigate, currentView }: SidebarProps) {
       <div className="p-6 border-b border-white/10">
         <div className="relative group cursor-pointer">
           {/* Outer glow rings */}
-          <div className="absolute -inset-2 bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 rounded-3xl blur-2xl opacity-20 group-hover:opacity-60 transition-all duration-1000 animate-pulse"></div>
-          <div className="absolute -inset-1 bg-gradient-to-r from-violet-600 via-fuchsia-600 to-rose-500 rounded-2xl blur-xl opacity-0 group-hover:opacity-40 transition-all duration-700"></div>
+          <div className="absolute -inset-2 bg-gradient-to-r from-purple-500 via-pink-600 to-orange-500 rounded-3xl blur-2xl opacity-20 group-hover:opacity-60 transition-all duration-1000 animate-pulse"></div>
+          <div className="absolute -inset-1 bg-gradient-to-r from-violet-600 via-pink-600 to-rose-500 rounded-2xl blur-xl opacity-0 group-hover:opacity-40 transition-all duration-700"></div>
           
           {/* Main logo container - ultra dark */}
-          <div className="relative bg-gradient-to-br from-black via-zinc-950 to-black rounded-2xl p-6 border-2 border-zinc-800/50 group-hover:border-purple-500/60 transition-all duration-700 group-hover:scale-110 transform shadow-2xl group-hover:shadow-purple-900/50">
+          <div className="relative bg-gradient-to-br from-black via-zinc-950 to-black rounded-2xl p-6 border-2 border-zinc-800/50 group-hover:border-purple-400/60 transition-all duration-700 group-hover:scale-110 transform shadow-2xl group-hover:shadow-purple-900/50">
             {/* Inner dark gradient overlay */}
             <div className="absolute inset-0 bg-gradient-to-tr from-purple-950/20 via-transparent to-pink-950/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
             
             {/* Animated sparkle elements */}
-            <div className="absolute top-3 right-3 w-2 h-2 bg-purple-400 rounded-full opacity-0 group-hover:opacity-100 animate-ping shadow-lg shadow-purple-500"></div>
+            <div className="absolute top-3 right-3 w-2 h-2 bg-purple-300 rounded-full opacity-0 group-hover:opacity-100 animate-ping shadow-lg shadow-purple-400"></div>
             <div className="absolute bottom-3 left-3 w-1.5 h-1.5 bg-pink-400 rounded-full opacity-0 group-hover:opacity-100 animate-ping delay-75 shadow-lg shadow-pink-500"></div>
             <div className="absolute top-1/2 left-2 w-1 h-1 bg-orange-400 rounded-full opacity-0 group-hover:opacity-100 animate-ping delay-150 shadow-lg shadow-orange-500"></div>
             
             {/* Logo text with intense gradient */}
-            <h1 className="relative text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-pink-300 to-orange-300 tracking-tighter text-center group-hover:from-purple-200 group-hover:via-pink-200 group-hover:to-orange-200 transition-all duration-700 drop-shadow-2xl animate-in fade-in slide-in-from-top-4 [text-shadow:_0_0_30px_rgb(168_85_247_/_50%)]">
+            <h1 className="relative text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-200 via-pink-300 to-orange-300 tracking-tighter text-center group-hover:from-purple-100 group-hover:via-pink-200 group-hover:to-orange-200 transition-all duration-700 drop-shadow-2xl animate-in fade-in slide-in-from-top-4 [text-shadow:_0_0_30px_rgb(168_85_247_/_50%)]">
               TaleHue
             </h1>
             
             {/* Multi-layered animated underlines */}
             <div className="mt-3 space-y-1">
-              <div className="h-1 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 rounded-full opacity-70 group-hover:opacity-100 group-hover:h-1.5 transition-all duration-700 shadow-lg shadow-purple-500/50 animate-in slide-in-from-left"></div>
-              <div className="h-0.5 bg-gradient-to-r from-violet-400 via-fuchsia-400 to-rose-400 rounded-full opacity-0 group-hover:opacity-60 transition-all duration-700 delay-100 animate-in slide-in-from-right"></div>
+              <div className="h-1 bg-gradient-to-r from-purple-400 via-pink-500 to-orange-500 rounded-full opacity-70 group-hover:opacity-100 group-hover:h-1.5 transition-all duration-700 shadow-lg shadow-purple-400/50 animate-in slide-in-from-left"></div>
+              <div className="h-0.5 bg-gradient-to-r from-violet-400 via-pink-400 to-rose-400 rounded-full opacity-0 group-hover:opacity-60 transition-all duration-700 delay-100 animate-in slide-in-from-right"></div>
             </div>
             
             {/* Enhanced shimmer effect */}
@@ -67,7 +68,7 @@ export default function Sidebar({ onNavigate, currentView }: SidebarProps) {
             </div>
             
             {/* Corner accents */}
-            <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-purple-500/0 group-hover:border-purple-500/50 rounded-tl-2xl transition-all duration-700"></div>
+            <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-purple-400/0 group-hover:border-purple-400/50 rounded-tl-2xl transition-all duration-700"></div>
             <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-pink-500/0 group-hover:border-pink-500/50 rounded-br-2xl transition-all duration-700"></div>
           </div>
         </div>
@@ -81,8 +82,8 @@ export default function Sidebar({ onNavigate, currentView }: SidebarProps) {
             onClick={() => onNavigate(item.view)}
             className={`group w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all duration-300 ${
               currentView === item.view
-                ? 'bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 text-white shadow-lg shadow-purple-500/50 neon-glow'
-                : 'bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 hover:border-purple-500/50'
+                ? 'bg-gradient-to-r from-purple-500 via-pink-600 to-orange-500 text-white shadow-lg shadow-purple-400/50 neon-glow'
+                : 'bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 hover:border-purple-400/50'
             }`}
           >
             <item.icon size={24} />
@@ -93,16 +94,16 @@ export default function Sidebar({ onNavigate, currentView }: SidebarProps) {
         {/* User Profile Section */}
         <div className="pt-4 space-y-3">
           {user && profile ? (
-            <div className="px-4 py-4 rounded-2xl bg-gradient-to-br from-purple-900/30 to-pink-900/30 border border-purple-500/30 backdrop-blur-sm">
+            <div className="px-4 py-4 rounded-2xl bg-gradient-to-br from-purple-900/30 to-pink-900/30 border border-purple-400/30 backdrop-blur-sm">
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 flex items-center justify-center text-white font-bold text-lg shadow-lg ring-2 ring-white/20">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 via-pink-500 to-orange-500 flex items-center justify-center text-white font-bold text-lg shadow-lg ring-2 ring-white/20">
                   {profile.displayName.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-white truncate">
                     {profile.displayName}
                   </p>
-                  <p className="text-xs text-purple-300/70 truncate">{user.email}</p>
+                  <p className="text-xs text-purple-200/70 truncate">{user.email}</p>
                 </div>
               </div>
               <button
@@ -124,7 +125,7 @@ export default function Sidebar({ onNavigate, currentView }: SidebarProps) {
               <button
                 onClick={handleSignIn}
                 disabled={signingIn}
-                className="w-full flex items-center justify-center gap-3 px-5 py-4 rounded-2xl bg-blue-900 hover:bg-blue-800 text-white font-bold shadow-lg shadow-blue-900/50 hover:shadow-blue-800/60 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                className="w-full flex items-center justify-center gap-3 px-5 py-4 rounded-2xl bg-orange-900 hover:bg-orange-800 text-white font-bold shadow-lg shadow-orange-900/50 hover:shadow-orange-800/60 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
                 {signingIn ? (
                   <>
