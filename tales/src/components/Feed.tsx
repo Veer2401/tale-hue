@@ -679,50 +679,50 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
               </div>
 
               {/* Comments List */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                <h3 className="text-xl font-black text-white mb-4">Comments 💬</h3>
+              <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-3 md:space-y-4">
+                <h3 className="text-xl md:text-2xl font-black text-white mb-4">Comments 💬</h3>
                 {comments.length === 0 ? (
                   <div className="text-center py-12">
                     <MessageCircle size={48} className="mx-auto mb-3 text-purple-300/50" />
-                    <p className="text-purple-200/70">No comments yet. Start the convo! 🔥</p>
+                    <p className="text-purple-200/70 text-base">No comments yet. Start the convo! 🔥</p>
                   </div>
                 ) : (
                   comments.map((comment) => (
-                    <div key={comment.id} className="flex gap-3 p-4 rounded-2xl bg-white/5 hover:bg-white/10 transition-all border border-white/5 group">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 via-orange-500 to-purple-400 flex items-center justify-center text-white text-sm font-black shrink-0 shadow-lg">
+                    <div key={comment.id} className="flex gap-3 p-4 rounded-2xl bg-white/10 hover:bg-white/15 transition-all border border-white/10 group backdrop-blur-sm">
+                      <div className="w-11 h-11 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-purple-500 via-orange-500 to-purple-400 flex items-center justify-center text-white text-base md:text-sm font-black shrink-0 shadow-lg">
                         {comment.displayName?.charAt(0).toUpperCase() || 'A'}
                       </div>
-                      <div className="flex-1">
-                        <div className="flex items-start justify-between">
-                          <p className="font-black text-sm text-white">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="font-black text-base md:text-sm text-white">
                             {comment.displayName || 'Anonymous'}
                           </p>
-                          {/* Edit/Delete buttons - only show for comment owner */}
+                          {/* Edit/Delete buttons - always visible on mobile, hover on desktop */}
                           {user && comment.userID === user.uid && (
-                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex gap-1.5 md:gap-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0">
                               {editingComment === comment.id ? (
                                 <button
                                   onClick={() => handleSaveComment(comment.id)}
-                                  className="p-1.5 hover:bg-green-500/20 rounded-lg transition-all"
+                                  className="p-2 bg-green-500/20 hover:bg-green-500/30 rounded-lg transition-all"
                                   title="Save"
                                 >
-                                  <Check size={16} className="text-green-400" />
+                                  <Check size={18} className="text-green-400" />
                                 </button>
                               ) : (
                                 <button
                                   onClick={() => handleEditComment(comment.id, comment.content)}
-                                  className="p-1.5 hover:bg-orange-500/20 rounded-lg transition-all"
+                                  className="p-2 bg-orange-500/20 hover:bg-orange-500/30 rounded-lg transition-all"
                                   title="Edit"
                                 >
-                                  <Edit2 size={16} className="text-orange-400" />
+                                  <Edit2 size={18} className="text-orange-400" />
                                 </button>
                               )}
                               <button
                                 onClick={() => handleDeleteComment(comment.id)}
-                                className="p-1.5 hover:bg-red-500/20 rounded-lg transition-all"
+                                className="p-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg transition-all"
                                 title="Delete"
                               >
-                                <Trash2 size={16} className="text-red-400" />
+                                <Trash2 size={18} className="text-red-400" />
                               </button>
                             </div>
                           )}
@@ -733,13 +733,13 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
                             value={editedCommentText}
                             onChange={(e) => setEditedCommentText(e.target.value)}
                             onKeyPress={(e) => e.key === 'Enter' && handleSaveComment(comment.id)}
-                            className="w-full mt-1.5 px-3 py-2 glass rounded-lg text-white placeholder-purple-200/50 focus:outline-none focus:ring-2 focus:ring-orange-500 font-medium border border-white/10 text-sm"
+                            className="w-full mt-2 px-3 py-2.5 glass rounded-lg text-white placeholder-purple-200/50 focus:outline-none focus:ring-2 focus:ring-orange-500 font-medium border border-white/10 text-base"
                             autoFocus
                           />
                         ) : (
-                          <p className="text-purple-100 mt-1.5 leading-relaxed text-sm">{comment.content}</p>
+                          <p className="text-white mt-2 leading-relaxed text-base break-words">{comment.content}</p>
                         )}
-                        <p className="text-xs text-purple-300/70 mt-1.5">
+                        <p className="text-xs md:text-xs text-purple-300/80 mt-2 font-medium">
                           {comment.createdAt?.toDate?.()?.toLocaleString() || 'Just now'}
                         </p>
                       </div>
@@ -750,28 +750,28 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
 
               {/* Add Comment */}
               {user ? (
-                <div className="p-6 border-t border-white/10 bg-gradient-to-r from-purple-900/20 via-pink-900/20 to-orange-900/20">
-                  <div className="flex gap-3">
+                <div className="p-4 md:p-6 border-t border-white/20 bg-gradient-to-r from-purple-900/30 via-pink-900/30 to-orange-900/30 backdrop-blur-sm">
+                  <div className="flex gap-2 md:gap-3">
                     <input
                       type="text"
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleAddComment()}
                       placeholder="Post your thoughts..."
-                      className="flex-1 px-6 py-4 glass rounded-full text-white placeholder-purple-200/50 focus:outline-none focus:ring-2 focus:ring-purple-400 font-medium border border-white/10"
+                      className="flex-1 px-4 md:px-6 py-3 md:py-4 glass rounded-full text-white text-base placeholder-purple-200/60 focus:outline-none focus:ring-2 focus:ring-purple-400 font-medium border border-white/20"
                       disabled={submitting}
                     />
                     <button
                       onClick={handleAddComment}
                       disabled={!newComment.trim() || submitting}
-                      className="px-8 py-4 bg-gradient-to-r from-purple-500 via-pink-600 to-orange-500 text-white rounded-full hover:shadow-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-black neon-glow"
+                      className="px-6 md:px-8 py-3 md:py-4 bg-gradient-to-r from-purple-500 via-pink-600 to-orange-500 text-white rounded-full hover:shadow-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-black neon-glow"
                     >
                       <Send size={20} />
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="p-6 border-t border-white/10 bg-gradient-to-r from-purple-900/20 via-pink-900/20 to-orange-900/20 text-center">
+                <div className="p-4 md:p-6 border-t border-white/20 bg-gradient-to-r from-purple-900/30 via-pink-900/30 to-orange-900/30 text-center backdrop-blur-sm">
                   <button
                     onClick={async () => {
                       try {
