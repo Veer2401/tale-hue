@@ -290,9 +290,11 @@ export default function CreateStory() {
   const handleGenerateAgain = () => {
     setPreviewImage(null);
     setImageBlob(null);
+    setContent('');
     setError(null);
     // Clear localStorage when regenerating
     localStorage.removeItem('talehue_draft_image');
+    localStorage.removeItem('talehue_draft_content');
   };
 
   const uploadStory = async (imageBlob: Blob) => {
@@ -385,7 +387,7 @@ export default function CreateStory() {
           <div>
             <h2 className="text-2xl md:text-3xl font-black text-white neon-text">Create Your Vibe</h2>
             <p className="text-xs md:text-sm text-purple-200 font-medium">
-              {user ? 'Post your story in 150 chars max 🔥' : 'Try it out! Sign in to post 🚀'}
+              {user ? 'Post your story in 150 chars max 🔥' : 'Think Unique �'}
             </p>
           </div>
         </div>
