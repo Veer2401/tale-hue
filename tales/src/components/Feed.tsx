@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, increment, addDoc, serverTimestamp, where, getDocs, deleteDoc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, increment, addDoc, serverTimestamp, where, getDocs, deleteDoc, limit } from 'firebase/firestore';
 import { Story, Profile } from '@/types';
 import { Heart, MessageCircle, Share2, X, Send, PlusCircle, Edit2, Trash2, Check, Copy, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -54,11 +54,36 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
   );
 
   useEffect(() => {
-    const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
+    // Limit to 20 most recent stories for faster loading
+    const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'), limit(20));
     
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       const storiesData: StoryWithProfile[] = [];
       
+      // Collect all unique user IDs first
+      const userIds = new Set<string>();
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        if (data.userID) {
+          userIds.add(data.userID);
+        }
+      });
+      
+      // Batch fetch all profiles at once
+      const profilesMap = new Map<string, Profile>();
+      if (userIds.size > 0) {
+        const profilesQuery = query(
+          collection(db, 'profiles'),
+          where('userID', 'in', Array.from(userIds))
+        );
+        const profilesSnap = await getDocs(profilesQuery);
+        profilesSnap.docs.forEach(doc => {
+          const profile = doc.data() as Profile;
+          profilesMap.set(profile.userID, profile);
+        });
+      }
+      
+      // Build stories with profiles
       for (const docSnap of snapshot.docs) {
         const storyData = { ...docSnap.data(), id: docSnap.id } as StoryWithProfile;
         
@@ -67,14 +92,8 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
           continue;
         }
         
-        // Fetch user profile
-        const profileSnap = await getDocs(
-          query(collection(db, 'profiles'), where('userID', '==', storyData.userID))
-        );
-        
-        if (!profileSnap.empty) {
-          storyData.profile = profileSnap.docs[0].data() as Profile;
-        }
+        // Attach profile from map
+        storyData.profile = profilesMap.get(storyData.userID);
         
         storiesData.push(storyData);
       }
