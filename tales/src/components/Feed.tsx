@@ -575,7 +575,7 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
                 </div>
 
                 {/* Story Description */}
-                <p className="text-white text-sm leading-tight font-medium line-clamp-2">
+                <p className="text-white text-base md:text-lg leading-tight font-semibold line-clamp-2">
                   {story.content}
                 </p>
               </div>
@@ -642,7 +642,7 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
 
               {/* Story Content */}
               <div className="p-6 border-b border-white/10">
-                <p className="text-white text-lg leading-relaxed font-medium mb-4">
+                <p className="text-white text-xl md:text-2xl leading-relaxed font-semibold mb-4">
                   {detailStory.content}
                 </p>
                 

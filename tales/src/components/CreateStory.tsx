@@ -106,15 +106,6 @@ export default function CreateStory() {
   const handleSuggestionClick = async (suggestion: string) => {
     setContent(suggestion);
     setError(null);
-    
-    if (!user) {
-      try {
-        await signInWithGoogle();
-      } catch (err) {
-        setError('Failed to sign in. Please try again.');
-      }
-      return;
-    }
 
     // Check for inappropriate content
     if (containsInappropriateContent(suggestion)) {
@@ -196,15 +187,6 @@ export default function CreateStory() {
 
   const handleGenerateImage = async () => {
     setError(null);
-    
-    if (!user) {
-      try {
-        await signInWithGoogle();
-      } catch (err) {
-        setError('Failed to sign in. Please try again.');
-      }
-      return;
-    }
 
     if (!content.trim() || content.length > 150) {
       setError('Story must be between 1 and 150 characters');
@@ -292,7 +274,16 @@ export default function CreateStory() {
   };
 
   const handlePost = async () => {
-    if (!imageBlob || !user) return;
+    if (!user) {
+      try {
+        await signInWithGoogle();
+      } catch (err) {
+        setError('Please sign in to post your story.');
+      }
+      return;
+    }
+    
+    if (!imageBlob) return;
     await uploadStory(imageBlob);
   };
 
@@ -393,7 +384,9 @@ export default function CreateStory() {
           </div>
           <div>
             <h2 className="text-2xl md:text-3xl font-black text-white neon-text">Create Your Vibe</h2>
-            <p className="text-xs md:text-sm text-purple-200 font-medium">Post your story in 150 chars max 🔥</p>
+            <p className="text-xs md:text-sm text-purple-200 font-medium">
+              {user ? 'Post your story in 150 chars max 🔥' : 'Try it out! Sign in to post 🚀'}
+            </p>
           </div>
         </div>
 
@@ -511,12 +504,7 @@ export default function CreateStory() {
             ) : (
               <>
                 <ImageIcon size={28} />
-                {user ? 'Generate My Vibe' : (
-                  <>
-                    <GoogleIcon />
-                    Sign In to Create
-                  </>
-                )}
+                Generate My Vibe ✨
               </>
             )}
           </button>
