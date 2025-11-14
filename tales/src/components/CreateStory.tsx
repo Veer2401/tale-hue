@@ -229,10 +229,11 @@ export default function CreateStory() {
         const imageUrl = `https://image.pollinations.ai/prompt/${enhancedPrompt}?width=1536&height=1536&nologo=true&model=flux-pro&enhance=true&seed=${Date.now()}`;
         
         console.log('Fetching high-quality image from Pollinations...');
+        console.log('Image URL:', imageUrl);
         
         // Fetch image with timeout for faster failure detection
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout for high-quality images
         
         const imageResponse = await fetch(imageUrl, { 
           signal: controller.signal,
@@ -265,9 +266,17 @@ export default function CreateStory() {
       } else {
         throw new Error('Failed to generate image');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating image:', error);
-      setError('Failed to generate image. Please try again.');
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      if (error.name === 'AbortError') {
+        setError('Image generation timed out. The AI service might be busy. Please try again.');
+      } else if (error.message?.includes('Failed to fetch')) {
+        setError('Network error. Please check your internet connection and try again.');
+      } else {
+        setError(error.message || 'Failed to generate image. Please try again.');
+      }
     } finally {
       setGenerating(false);
     }
