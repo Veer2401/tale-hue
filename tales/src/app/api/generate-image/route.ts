@@ -25,25 +25,30 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    try {
-      // First, enhance the prompt using Gemini
-      const model = genAI.getGenerativeModel({ 
-        model: 'gemini-2.0-flash-exp',
-        generationConfig: {
-          temperature: 1.2,
-          topP: 0.95,
-          topK: 40,
-          maxOutputTokens: 500,
-        }
-      });
+    // Retry logic for Gemini API with exponential backoff
+    let enhancedPrompt = '';
+    let retries = 3;
+    
+    while (retries > 0) {
+      try {
+        // First, enhance the prompt using Gemini 2.0
+        const model = genAI.getGenerativeModel({ 
+          model: 'gemini-2.0-flash-exp',
+          generationConfig: {
+            temperature: 0.9,
+            topP: 0.95,
+            topK: 40,
+            maxOutputTokens: 300,
+          }
+        });
 
-      // Generate a concise, high-quality image prompt
-      const result = await model.generateContent([
-        {
-          text: `Create a SHORT, vivid image prompt for: "${prompt}"
+        // Generate a concise, high-quality image prompt
+        const result = await model.generateContent([
+          {
+            text: `Create a SHORT, vivid image prompt for: "${prompt}"
 
 RULES:
-- Max 20 words
+- Max 15 words
 - Start with main subject
 - Add: photorealistic, 8K, ultra detailed, sharp focus
 - Specify lighting and colors
@@ -52,29 +57,35 @@ RULES:
 Format: [subject], photorealistic, 8K, ultra detailed, sharp focus, [lighting], [colors]
 
 Prompt only:`
+          }
+        ]);
+
+        const response = result.response;
+        enhancedPrompt = response.text().trim();
+
+        console.log('Enhanced prompt:', enhancedPrompt);
+        break; // Success, exit retry loop
+        
+      } catch (geminiError: any) {
+        retries--;
+        console.error(`Gemini API error (${3 - retries}/3):`, geminiError.message);
+        
+        if (retries === 0) {
+          // All retries exhausted, use fallback
+          console.warn('All Gemini retries exhausted, using fallback');
+          enhancedPrompt = `${prompt}, photorealistic, 8K, ultra detailed, sharp focus, professional photography, vivid colors`;
+        } else {
+          // Wait before retrying (exponential backoff)
+          await new Promise(resolve => setTimeout(resolve, (3 - retries) * 1000));
         }
-      ]);
-
-      const response = result.response;
-      const enhancedPrompt = response.text().trim();
-
-      console.log('Enhanced prompt:', enhancedPrompt);
-
-      return NextResponse.json({ 
-        success: true, 
-        imageDescription: enhancedPrompt,
-        originalPrompt: prompt
-      });
-    } catch (geminiError: any) {
-      console.error('Gemini API error:', geminiError);
-      // Fallback to basic enhancement if Gemini fails
-      const basicEnhancedPrompt = `${prompt}, photorealistic, 8K, ultra detailed, sharp focus, professional photography, vivid colors`;
-      return NextResponse.json({ 
-        success: true, 
-        imageDescription: basicEnhancedPrompt,
-        originalPrompt: prompt
-      });
+      }
     }
+
+    return NextResponse.json({ 
+      success: true, 
+      imageDescription: enhancedPrompt,
+      originalPrompt: prompt
+    });
 
   } catch (error: any) {
     console.error('Error generating image:', error);

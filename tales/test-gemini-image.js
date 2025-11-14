@@ -13,7 +13,7 @@ async function main() {
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-image",
+      model: "gemini-2.0-flash-exp",
       contents: prompt,
     });
 

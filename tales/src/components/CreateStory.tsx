@@ -131,38 +131,71 @@ export default function CreateStory() {
       if (data.success && data.imageDescription) {
         console.log('Enhanced prompt:', data.imageDescription);
         
-        // Use Flux Pro model for highest quality and faster generation
-        const enhancedPrompt = encodeURIComponent(
-          data.imageDescription + 
-          ", masterpiece, best quality, photorealistic, 8K UHD, ultra detailed, sharp focus, vivid colors, professional photography"
-        );
+        // Retry logic with multiple image services
+        let imageBlob: Blob | null = null;
+        let retries = 4;
+        let lastError: Error | null = null;
         
-        // Flux Pro model: Higher quality with optimized speed
-        const imageUrl = `https://image.pollinations.ai/prompt/${enhancedPrompt}?width=1536&height=1536&nologo=true&model=flux-pro&enhance=true&seed=${Date.now()}`;
-        
-        console.log('Fetching high-quality image from Pollinations...');
-        
-        // Fetch image with timeout for faster failure detection
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
-        
-        const imageResponse = await fetch(imageUrl, { 
-          signal: controller.signal,
-          cache: 'no-store'
-        });
-        clearTimeout(timeoutId);
-        
-        if (!imageResponse.ok) {
-          throw new Error(`Image generation failed: ${imageResponse.status}`);
+        while (retries > 0 && !imageBlob) {
+          try {
+            const enhancedPrompt = encodeURIComponent(
+              data.imageDescription + 
+              ", masterpiece, best quality, photorealistic, 8K UHD, sharp focus, vivid colors"
+            );
+            
+            let imageUrl: string;
+            
+            // Try different services on different attempts
+            if (retries === 4 || retries === 2) {
+              // Try Pollinations flux model (attempts 1 and 3)
+              imageUrl = `https://image.pollinations.ai/prompt/${enhancedPrompt}?width=1024&height=1024&nologo=true&model=flux&seed=${Date.now()}`;
+              console.log(`Fetching from Pollinations (attempt ${5 - retries}/4)...`);
+            } else {
+              // Try Pollinations turbo model (attempts 2 and 4) - faster fallback
+              imageUrl = `https://image.pollinations.ai/prompt/${enhancedPrompt}?width=1024&height=1024&nologo=true&model=turbo&seed=${Date.now()}`;
+              console.log(`Fetching from Pollinations Turbo (attempt ${5 - retries}/4)...`);
+            }
+            
+            // Fetch image with timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 35000); // 35s timeout
+            
+            const imageResponse = await fetch(imageUrl, { 
+              signal: controller.signal,
+              cache: 'no-store'
+            });
+            clearTimeout(timeoutId);
+            
+            if (!imageResponse.ok) {
+              throw new Error(`Image generation failed: ${imageResponse.status}`);
+            }
+            
+            const blob = await imageResponse.blob();
+            
+            if (blob.size === 0) {
+              throw new Error('Generated image is empty');
+            }
+            
+            console.log('✅ Image loaded successfully, size:', blob.size, 'bytes');
+            imageBlob = blob;
+            
+          } catch (err: any) {
+            lastError = err;
+            retries--;
+            console.error(`❌ Image generation attempt failed (${4 - retries}/4):`, err.message);
+            
+            if (retries > 0) {
+              // Wait before retrying (progressive backoff: 2s, 3s, 4s)
+              const waitTime = (5 - retries) * 1000;
+              console.log(`⏳ Retrying in ${waitTime / 1000}s...`);
+              await new Promise(resolve => setTimeout(resolve, waitTime));
+            }
+          }
         }
         
-        const imageBlob = await imageResponse.blob();
-        
-        if (imageBlob.size === 0) {
-          throw new Error('Generated image is empty');
+        if (!imageBlob) {
+          throw lastError || new Error('Failed to generate image after 4 attempts');
         }
-        
-        console.log('High-quality image loaded successfully, size:', imageBlob.size, 'bytes');
         
         // Convert blob to base64 for storage (suggestion click path)
         const reader = new FileReader();
@@ -177,9 +210,15 @@ export default function CreateStory() {
       } else {
         throw new Error('Failed to generate image');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating image:', error);
-      setError('Failed to generate image. Please try again.');
+      if (error.name === 'AbortError') {
+        setError('Image generation timed out. Please try again in a moment.');
+      } else if (error.message?.includes('530')) {
+        setError('Image service is very busy right now. Please wait 10 seconds and try again.');
+      } else {
+        setError('Failed to generate image. Please try again.');
+      }
     } finally {
       setGenerating(false);
     }
@@ -218,40 +257,71 @@ export default function CreateStory() {
       if (data.success && data.imageDescription) {
         console.log('Enhanced prompt:', data.imageDescription);
         
-        // Use Flux Pro model for highest quality and faster generation
-        const enhancedPrompt = encodeURIComponent(
-          data.imageDescription + 
-          ", masterpiece, best quality, photorealistic, 8K UHD, ultra detailed, sharp focus, vivid colors, professional photography"
-        );
+        // Retry logic with multiple image services
+        let imageBlob: Blob | null = null;
+        let retries = 4;
+        let lastError: Error | null = null;
         
-        // Flux Pro model: Higher quality with optimized speed
-        // Using higher resolution for better quality
-        const imageUrl = `https://image.pollinations.ai/prompt/${enhancedPrompt}?width=1536&height=1536&nologo=true&model=flux-pro&enhance=true&seed=${Date.now()}`;
-        
-        console.log('Fetching high-quality image from Pollinations...');
-        console.log('Image URL:', imageUrl);
-        
-        // Fetch image with timeout for faster failure detection
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout for high-quality images
-        
-        const imageResponse = await fetch(imageUrl, { 
-          signal: controller.signal,
-          cache: 'no-store'
-        });
-        clearTimeout(timeoutId);
-        
-        if (!imageResponse.ok) {
-          throw new Error(`Image generation failed: ${imageResponse.status}`);
+        while (retries > 0 && !imageBlob) {
+          try {
+            const enhancedPrompt = encodeURIComponent(
+              data.imageDescription + 
+              ", masterpiece, best quality, photorealistic, 8K UHD, sharp focus, vivid colors"
+            );
+            
+            let imageUrl: string;
+            
+            // Try different services on different attempts
+            if (retries === 4 || retries === 2) {
+              // Try Pollinations flux model (attempts 1 and 3)
+              imageUrl = `https://image.pollinations.ai/prompt/${enhancedPrompt}?width=1024&height=1024&nologo=true&model=flux&seed=${Date.now()}`;
+              console.log(`Fetching from Pollinations (attempt ${5 - retries}/4)...`);
+            } else {
+              // Try Pollinations turbo model (attempts 2 and 4) - faster fallback
+              imageUrl = `https://image.pollinations.ai/prompt/${enhancedPrompt}?width=1024&height=1024&nologo=true&model=turbo&seed=${Date.now()}`;
+              console.log(`Fetching from Pollinations Turbo (attempt ${5 - retries}/4)...`);
+            }
+            
+            // Fetch image with timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 35000); // 35s timeout
+            
+            const imageResponse = await fetch(imageUrl, { 
+              signal: controller.signal,
+              cache: 'no-store'
+            });
+            clearTimeout(timeoutId);
+            
+            if (!imageResponse.ok) {
+              throw new Error(`Image generation failed: ${imageResponse.status}`);
+            }
+            
+            const blob = await imageResponse.blob();
+            
+            if (blob.size === 0) {
+              throw new Error('Generated image is empty');
+            }
+            
+            console.log('✅ Image loaded successfully, size:', blob.size, 'bytes');
+            imageBlob = blob;
+            
+          } catch (err: any) {
+            lastError = err;
+            retries--;
+            console.error(`❌ Image generation attempt failed (${4 - retries}/4):`, err.message);
+            
+            if (retries > 0) {
+              // Wait before retrying (progressive backoff: 2s, 3s, 4s)
+              const waitTime = (5 - retries) * 1000;
+              console.log(`⏳ Retrying in ${waitTime / 1000}s...`);
+              await new Promise(resolve => setTimeout(resolve, waitTime));
+            }
+          }
         }
         
-        const imageBlob = await imageResponse.blob();
-        
-        if (imageBlob.size === 0) {
-          throw new Error('Generated image is empty');
+        if (!imageBlob) {
+          throw lastError || new Error('Failed to generate image after 4 attempts');
         }
-        
-        console.log('High-quality image loaded successfully, size:', imageBlob.size, 'bytes');
         
         // Convert blob to base64 for storage (main generate path)
         const reader = new FileReader();
@@ -271,9 +341,11 @@ export default function CreateStory() {
       console.error('Error name:', error.name);
       console.error('Error message:', error.message);
       if (error.name === 'AbortError') {
-        setError('Image generation timed out. The AI service might be busy. Please try again.');
+        setError('Image generation timed out. Please try again in a moment.');
       } else if (error.message?.includes('Failed to fetch')) {
         setError('Network error. Please check your internet connection and try again.');
+      } else if (error.message?.includes('530')) {
+        setError('Image service is very busy right now. Please wait 10 seconds and try again.');
       } else {
         setError(error.message || 'Failed to generate image. Please try again.');
       }
