@@ -446,11 +446,11 @@ export default function CreateStory() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto p-4 md:p-6">
+    <div className="max-w-3xl mx-auto p-4 md:p-6 relative floating-particles">
       {/* Success Toast */}
       {successMessage && (
         <div className="fixed top-4 md:top-6 right-4 md:right-6 left-4 md:left-auto z-50 animate-slide-in">
-          <div className="glass rounded-2xl px-4 md:px-6 py-3 md:py-4 border border-green-500/50 shadow-2xl flex items-center gap-2 md:gap-3 neon-glow">
+          <div className="glass-heavy rounded-2xl px-4 md:px-6 py-3 md:py-4 border border-green-500/50 shadow-2xl flex items-center gap-2 md:gap-3 neon-glow-strong">
             <CheckCircle className="text-green-400" size={20} />
             <CheckCircle className="text-green-400 hidden md:block" size={24} />
             <p className="text-white font-bold text-sm md:text-base">{successMessage}</p>
@@ -458,36 +458,36 @@ export default function CreateStory() {
         </div>
       )}
 
-      <div className="glass rounded-3xl shadow-2xl p-6 md:p-10 border border-purple-400/30">
+      <div className="glass-gradient rounded-3xl shadow-2xl p-6 md:p-10 border-2 border-purple-400/40 relative overflow-hidden fade-in">
         {/* Header */}
-        <div className="flex items-center gap-3 md:gap-4 mb-6 md:mb-8">
-          <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-gradient-to-br from-purple-500 via-pink-600 to-orange-500 flex items-center justify-center shadow-xl neon-glow">
+        <div className="flex items-center gap-3 md:gap-4 mb-6 md:mb-8 relative z-10">
+          <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-gradient-to-br from-purple-500 via-pink-600 to-orange-500 flex items-center justify-center shadow-xl neon-glow-strong pulse-glow">
             <Sparkles className="text-white" size={24} />
             <Sparkles className="text-white hidden md:block" size={32} />
           </div>
           <div>
-            <h2 className="text-2xl md:text-3xl font-black text-white neon-text">Create Your Vibe</h2>
+            <h2 className="text-2xl md:text-3xl font-black gradient-text-animated">Create Your Vibe</h2>
             <p className="text-xs md:text-sm text-purple-200 font-medium">
-              {user ? 'Post your story in 150 chars max 🔥' : 'Think Unique �'}
+              {user ? 'Post your story in 150 chars max 🔥' : 'Think Unique ✨'}
             </p>
           </div>
         </div>
 
         {/* Story Input */}
-        <div className="mb-6">
+        <div className="mb-6 relative z-10">
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
             maxLength={150}
             placeholder="What's your story? Make it lit... 🚀"
-            className="w-full h-32 md:h-40 p-4 md:p-6 glass rounded-3xl border-2 border-purple-400/30 focus:border-purple-400 focus:outline-none text-white text-base md:text-lg resize-none placeholder-purple-200/50 font-medium backdrop-blur-xl"
+            className="w-full h-32 md:h-40 p-4 md:p-6 glass-heavy rounded-3xl border-2 border-purple-400/40 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 text-white text-base md:text-lg resize-none placeholder-purple-200/50 font-medium backdrop-blur-xl transition-all duration-300"
           />
           <div className="flex justify-between items-center mt-3">
             <span className="text-xs md:text-sm text-purple-200 font-bold">
               {content.length}/150 characters
             </span>
             {content.length > 0 && (
-              <span className={`text-xs md:text-sm font-black ${content.length > 150 ? 'text-red-400' : 'text-green-400'}`}>
+              <span className={`text-xs md:text-sm font-black transition-all duration-300 ${content.length > 150 ? 'text-red-400 pulse-glow' : 'text-green-400'}`}>
                 {content.length > 150 ? '❌ Too long bestie' : '✓ Perfect vibe'}
               </span>
             )}
@@ -496,7 +496,7 @@ export default function CreateStory() {
 
         {/* Error Message */}
         {(error || authError) && (
-          <div className="mb-6 p-5 bg-red-500/10 border-2 border-red-500/30 rounded-2xl backdrop-blur-sm">
+          <div className="mb-6 p-5 bg-red-500/10 border-2 border-red-500/40 rounded-2xl backdrop-blur-sm fade-in relative z-10">
             <p className="text-sm text-red-300 font-bold">
               {error || authError}
             </p>
@@ -505,7 +505,7 @@ export default function CreateStory() {
 
         {/* Quick Suggestions */}
         {!previewImage && (
-          <div className="mb-6">
+          <div className="mb-6 relative z-10">
             <p className="text-sm text-purple-200 font-bold mb-3">Quick Ideas:</p>
             <div className="flex flex-wrap gap-2">
               {suggestions.map((suggestion, index) => (
@@ -513,7 +513,7 @@ export default function CreateStory() {
                   key={index}
                   onClick={() => handleSuggestionClick(suggestion)}
                   disabled={generating}
-                  className="px-4 py-2 glass border border-purple-400/30 hover:border-purple-400 text-purple-100 hover:text-white text-sm font-medium rounded-full transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                  className="px-4 py-2 glass-light border border-purple-400/40 hover:border-purple-400 text-purple-100 hover:text-white text-sm font-medium rounded-full transition-all hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shimmer-hover button-glow"
                 >
                   {suggestion}
                 </button>
@@ -524,21 +524,21 @@ export default function CreateStory() {
 
         {/* Image Preview with Side Buttons */}
         {previewImage ? (
-          <div className="mb-6">
+          <div className="mb-6 relative z-10 fade-in">
             <div className="flex flex-col md:flex-row gap-4 items-center md:items-start">
               {/* Image */}
               <div className="flex-shrink-0 w-full md:w-auto">
-                <div className="relative rounded-3xl overflow-hidden border-4 border-purple-400 shadow-2xl neon-glow max-w-sm mx-auto md:mx-0">
+                <div className="relative rounded-3xl overflow-hidden border-4 border-purple-400 shadow-2xl neon-glow-strong max-w-sm mx-auto md:mx-0 card-lift">
                   <img
                     src={previewImage}
                     alt="Generated story preview"
                     className="w-full aspect-square object-cover"
                   />
-                  <div className="absolute top-4 right-4 px-4 py-2 bg-black/60 backdrop-blur-md rounded-full">
-                    <p className="text-xs text-white font-bold">AI Generated</p>
+                  <div className="absolute top-4 right-4 px-4 py-2 glass-heavy rounded-full">
+                    <p className="text-xs text-white font-bold">AI Generated ✨</p>
                   </div>
                 </div>
-                <p className="text-xs text-purple-200 text-center mt-3 font-medium">
+                <p className="text-xs text-purple-200 text-center mt-3 font-medium gradient-text">
                   Your masterpiece awaits! 🌟
                 </p>
               </div>
@@ -548,7 +548,7 @@ export default function CreateStory() {
                 <button
                   onClick={handleGenerateAgain}
                   disabled={uploading}
-                  className="py-5 px-6 glass border-2 border-white/20 text-white font-black text-lg rounded-full hover:bg-white/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 transform hover:scale-105"
+                  className="py-5 px-6 glass-heavy border-2 border-white/30 text-white font-black text-lg rounded-full hover:bg-white/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 button-glow shimmer-hover"
                 >
                   <RefreshCw size={24} />
                   Remix It
@@ -556,7 +556,7 @@ export default function CreateStory() {
                 <button
                   onClick={handlePost}
                   disabled={uploading}
-                  className="py-5 px-6 bg-gradient-to-r from-green-500 via-emerald-500 to-purple-500 text-white font-black text-lg rounded-full hover:shadow-2xl transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 neon-glow"
+                  className="py-5 px-6 bg-gradient-to-r from-green-500 via-emerald-500 to-purple-500 text-white font-black text-lg rounded-full hover:shadow-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 neon-glow-strong pulse-glow button-glow"
                 >
                   {uploading ? (
                     <>
@@ -577,7 +577,7 @@ export default function CreateStory() {
           <button
             onClick={handleGenerateImage}
             disabled={generating || uploading || !content.trim() || content.length > 150}
-            className="w-full py-6 px-8 bg-gradient-to-r from-purple-500 via-pink-600 to-orange-500 text-white font-black text-xl rounded-full hover:shadow-2xl transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-4 neon-glow"
+            className="w-full py-6 px-8 bg-gradient-to-r from-purple-500 via-pink-600 to-orange-500 text-white font-black text-xl rounded-full hover:shadow-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-4 neon-glow-strong pulse-glow button-glow shimmer-hover relative z-10"
           >
             {generating ? (
               <>
@@ -594,7 +594,7 @@ export default function CreateStory() {
         )}
 
         {/* AI Disclaimer */}
-        <div className="mt-6 p-4 glass border border-purple-400/20 rounded-2xl backdrop-blur-sm">
+        <div className="mt-6 p-4 glass-light border border-purple-400/30 rounded-2xl backdrop-blur-sm relative z-10">
           <p className="text-xs text-purple-200/80 text-center font-medium">
             <span className="font-bold text-purple-300">Note:</span> AI-generated content may not always be perfect. Please review before posting.
           </p>
