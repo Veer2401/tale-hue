@@ -1,4 +1,4 @@
-# tale-hue
+# TaleHue
 
 ## Overview
 
