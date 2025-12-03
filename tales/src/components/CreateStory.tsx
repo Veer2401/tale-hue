@@ -9,10 +9,10 @@ import { Sparkles, Image as ImageIcon, Loader2, RefreshCw, Send, CheckCircle, XC
 // Google Icon Component
 const GoogleIcon = () => (
   <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/>
-    <path d="M9.003 18c2.43 0 4.467-.806 5.956-2.18L12.05 13.56c-.806.54-1.837.86-3.047.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9.003 18z" fill="#34A853"/>
-    <path d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.347 6.173 0 7.548 0 9.001c0 1.452.348 2.827.957 4.041l3.007-2.332z" fill="#FBBC05"/>
-    <path d="M9.003 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.464.891 11.426 0 9.003 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29c.708-2.127 2.692-3.71 5.039-3.71z" fill="#EA4335"/>
+    <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4" />
+    <path d="M9.003 18c2.43 0 4.467-.806 5.956-2.18L12.05 13.56c-.806.54-1.837.86-3.047.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9.003 18z" fill="#34A853" />
+    <path d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.347 6.173 0 7.548 0 9.001c0 1.452.348 2.827.957 4.041l3.007-2.332z" fill="#FBBC05" />
+    <path d="M9.003 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.464.891 11.426 0 9.003 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29c.708-2.127 2.692-3.71 5.039-3.71z" fill="#EA4335" />
   </svg>
 );
 
@@ -49,11 +49,11 @@ export default function CreateStory() {
   useEffect(() => {
     const savedContent = localStorage.getItem('talehue_draft_content');
     const savedImage = localStorage.getItem('talehue_draft_image');
-    
+
     if (savedContent) {
       setContent(savedContent);
     }
-    
+
     if (savedImage) {
       // Validate that it's a proper data URL before trying to fetch
       if (savedImage.startsWith('blob:') || savedImage.startsWith('data:image/')) {
@@ -95,12 +95,12 @@ export default function CreateStory() {
 
   // Predefined suggestions
   const suggestions = [
-    "Sunset beach café vibe",
-    "Inside a cool recording studio",
-    "Magical Christmas village at night",
-    "Neon arcade nostalgia",
-    "Cozy winter market scene",
-    "F1 pit lane adrenaline rush"
+    "Cyberpunk cityscape at midnight",
+    "Underwater coral reef paradise",
+    "Northern lights over snowy cabin",
+    "Tokyo street food night market",
+    "Space station window view",
+    "Ancient temple ruins at sunrise"
   ];
 
   const handleSuggestionClick = async (suggestion: string) => {
@@ -114,7 +114,7 @@ export default function CreateStory() {
     }
 
     setGenerating(true);
-    
+
     try {
       const response = await fetch('/api/generate-image', {
         method: 'POST',
@@ -123,28 +123,28 @@ export default function CreateStory() {
       });
 
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.error || data.details || 'Failed to enhance prompt');
       }
-      
+
       if (data.success && data.imageDescription) {
         console.log('Enhanced prompt:', data.imageDescription);
-        
+
         // Retry logic with multiple image services
         let imageBlob: Blob | null = null;
         let retries = 4;
         let lastError: Error | null = null;
-        
+
         while (retries > 0 && !imageBlob) {
           try {
             const enhancedPrompt = encodeURIComponent(
-              data.imageDescription + 
+              data.imageDescription +
               ", masterpiece, best quality, photorealistic, 8K UHD, sharp focus, vivid colors"
             );
-            
+
             let imageUrl: string;
-            
+
             // Try different services on different attempts
             if (retries === 4 || retries === 2) {
               // Try Pollinations flux model (attempts 1 and 3)
@@ -155,35 +155,35 @@ export default function CreateStory() {
               imageUrl = `https://image.pollinations.ai/prompt/${enhancedPrompt}?width=1024&height=1024&nologo=true&model=turbo&seed=${Date.now()}`;
               console.log(`Fetching from Pollinations Turbo (attempt ${5 - retries}/4)...`);
             }
-            
+
             // Fetch image with timeout
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 35000); // 35s timeout
-            
-            const imageResponse = await fetch(imageUrl, { 
+
+            const imageResponse = await fetch(imageUrl, {
               signal: controller.signal,
               cache: 'no-store'
             });
             clearTimeout(timeoutId);
-            
+
             if (!imageResponse.ok) {
               throw new Error(`Image generation failed: ${imageResponse.status}`);
             }
-            
+
             const blob = await imageResponse.blob();
-            
+
             if (blob.size === 0) {
               throw new Error('Generated image is empty');
             }
-            
+
             console.log('✅ Image loaded successfully, size:', blob.size, 'bytes');
             imageBlob = blob;
-            
+
           } catch (err: any) {
             lastError = err;
             retries--;
             console.error(`❌ Image generation attempt failed (${4 - retries}/4):`, err.message);
-            
+
             if (retries > 0) {
               // Wait before retrying (progressive backoff: 2s, 3s, 4s)
               const waitTime = (5 - retries) * 1000;
@@ -192,11 +192,11 @@ export default function CreateStory() {
             }
           }
         }
-        
+
         if (!imageBlob) {
           throw lastError || new Error('Failed to generate image after 4 attempts');
         }
-        
+
         // Convert blob to base64 for storage (suggestion click path)
         const reader = new FileReader();
         reader.onloadend = () => {
@@ -205,7 +205,7 @@ export default function CreateStory() {
           }
         };
         reader.readAsDataURL(imageBlob);
-        
+
         setImageBlob(imageBlob);
       } else {
         throw new Error('Failed to generate image');
@@ -240,7 +240,7 @@ export default function CreateStory() {
     }
 
     setGenerating(true);
-    
+
     try {
       const response = await fetch('/api/generate-image', {
         method: 'POST',
@@ -249,28 +249,28 @@ export default function CreateStory() {
       });
 
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.error || data.details || 'Failed to enhance prompt');
       }
-      
+
       if (data.success && data.imageDescription) {
         console.log('Enhanced prompt:', data.imageDescription);
-        
+
         // Retry logic with multiple image services
         let imageBlob: Blob | null = null;
         let retries = 4;
         let lastError: Error | null = null;
-        
+
         while (retries > 0 && !imageBlob) {
           try {
             const enhancedPrompt = encodeURIComponent(
-              data.imageDescription + 
+              data.imageDescription +
               ", masterpiece, best quality, photorealistic, 8K UHD, sharp focus, vivid colors"
             );
-            
+
             let imageUrl: string;
-            
+
             // Try different services on different attempts
             if (retries === 4 || retries === 2) {
               // Try Pollinations flux model (attempts 1 and 3)
@@ -281,35 +281,35 @@ export default function CreateStory() {
               imageUrl = `https://image.pollinations.ai/prompt/${enhancedPrompt}?width=1024&height=1024&nologo=true&model=turbo&seed=${Date.now()}`;
               console.log(`Fetching from Pollinations Turbo (attempt ${5 - retries}/4)...`);
             }
-            
+
             // Fetch image with timeout
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 35000); // 35s timeout
-            
-            const imageResponse = await fetch(imageUrl, { 
+
+            const imageResponse = await fetch(imageUrl, {
               signal: controller.signal,
               cache: 'no-store'
             });
             clearTimeout(timeoutId);
-            
+
             if (!imageResponse.ok) {
               throw new Error(`Image generation failed: ${imageResponse.status}`);
             }
-            
+
             const blob = await imageResponse.blob();
-            
+
             if (blob.size === 0) {
               throw new Error('Generated image is empty');
             }
-            
+
             console.log('✅ Image loaded successfully, size:', blob.size, 'bytes');
             imageBlob = blob;
-            
+
           } catch (err: any) {
             lastError = err;
             retries--;
             console.error(`❌ Image generation attempt failed (${4 - retries}/4):`, err.message);
-            
+
             if (retries > 0) {
               // Wait before retrying (progressive backoff: 2s, 3s, 4s)
               const waitTime = (5 - retries) * 1000;
@@ -318,11 +318,11 @@ export default function CreateStory() {
             }
           }
         }
-        
+
         if (!imageBlob) {
           throw lastError || new Error('Failed to generate image after 4 attempts');
         }
-        
+
         // Convert blob to base64 for storage (main generate path)
         const reader = new FileReader();
         reader.onloadend = () => {
@@ -331,7 +331,7 @@ export default function CreateStory() {
           }
         };
         reader.readAsDataURL(imageBlob);
-        
+
         setImageBlob(imageBlob);
       } else {
         throw new Error('Failed to generate image');
@@ -363,7 +363,7 @@ export default function CreateStory() {
       }
       return;
     }
-    
+
     if (!imageBlob) return;
     await uploadStory(imageBlob);
   };
@@ -383,16 +383,16 @@ export default function CreateStory() {
       setError('Please sign in to post stories');
       return;
     }
-    
+
     setUploading(true);
     setError(null);
-    
+
     try {
       console.log('Starting upload process...');
-      
+
       // Convert image blob directly to base64 without compression
       const reader = new FileReader();
-      
+
       const base64Image = await new Promise<string>((resolve, reject) => {
         reader.onloadend = () => {
           if (typeof reader.result === 'string') {
@@ -404,7 +404,7 @@ export default function CreateStory() {
         reader.onerror = reject;
         reader.readAsDataURL(imageBlob);
       });
-      
+
       console.log('Image converted to base64, size:', base64Image.length, 'bytes');
 
       // Create story document in Firestore with original quality image
@@ -421,7 +421,7 @@ export default function CreateStory() {
 
       console.log('Creating post document...');
       await addDoc(collection(db, 'posts'), storyData);
-      
+
       console.log('Post created successfully!');
 
       // Clear localStorage and reset form
@@ -430,11 +430,11 @@ export default function CreateStory() {
       setContent('');
       setPreviewImage(null);
       setImageBlob(null);
-      
+
       // Show success message with beautiful UI
       setSuccessMessage('Your story was posted successfully!');
       setTimeout(() => setSuccessMessage(null), 3000);
-      
+
     } catch (error: any) {
       console.error('Error uploading story:', error);
       console.error('Error code:', error.code);
@@ -529,9 +529,9 @@ export default function CreateStory() {
               {/* Image */}
               <div className="flex-shrink-0 w-full md:w-auto">
                 <div className="relative rounded-3xl overflow-hidden border-4 border-purple-400 shadow-2xl neon-glow max-w-sm mx-auto md:mx-0">
-                  <img 
-                    src={previewImage} 
-                    alt="Generated story preview" 
+                  <img
+                    src={previewImage}
+                    alt="Generated story preview"
                     className="w-full aspect-square object-cover"
                   />
                   <div className="absolute top-4 right-4 px-4 py-2 bg-black/60 backdrop-blur-md rounded-full">
