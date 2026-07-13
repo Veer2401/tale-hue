@@ -2,9 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, increment, addDoc, serverTimestamp, where, getDocs, deleteDoc, limit } from 'firebase/firestore';
+import {
+  collection, query, orderBy, onSnapshot, doc, updateDoc,
+  increment, addDoc, serverTimestamp, where, getDocs,
+  deleteDoc, limit
+} from 'firebase/firestore';
 import { Story, Profile } from '@/types';
-import { Heart, MessageCircle, Share2, X, Send, PlusCircle, Edit2, Trash2, Check, Copy, CheckCircle } from 'lucide-react';
+import {
+  Heart, MessageCircle, Share2, X, Send, PlusCircle,
+  Edit2, Trash2, Check, Copy, CheckCircle
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface StoryWithProfile extends Story {
@@ -25,6 +32,15 @@ interface FeedProps {
   onNavigateToCreate?: () => void;
 }
 
+const GoogleIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+    <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4" />
+    <path d="M9.003 18c2.43 0 4.467-.806 5.956-2.18L12.05 13.56c-.806.54-1.837.86-3.047.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9.003 18z" fill="#34A853" />
+    <path d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.347 6.173 0 7.548 0 9.001c0 1.452.348 2.827.957 4.041l3.007-2.332z" fill="#FBBC05" />
+    <path d="M9.003 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.464.891 11.426 0 9.003 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29c.708-2.127 2.692-3.71 5.039-3.71z" fill="#EA4335" />
+  </svg>
+);
+
 export default function Feed({ onNavigateToCreate }: FeedProps) {
   const { user, profile, signInWithGoogle } = useAuth();
   const [stories, setStories] = useState<StoryWithProfile[]>([]);
@@ -44,98 +60,55 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
   const [copiedLink, setCopiedLink] = useState(false);
   const [shouldReverse, setShouldReverse] = useState(false);
 
-  // Google Icon Component
-  const GoogleIcon = () => (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4" />
-      <path d="M9.003 18c2.43 0 4.467-.806 5.956-2.18L12.05 13.56c-.806.54-1.837.86-3.047.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9.003 18z" fill="#34A853" />
-      <path d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.347 6.173 0 7.548 0 9.001c0 1.452.348 2.827.957 4.041l3.007-2.332z" fill="#FBBC05" />
-      <path d="M9.003 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.464.891 11.426 0 9.003 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29c.708-2.127 2.692-3.71 5.039-3.71z" fill="#EA4335" />
-    </svg>
-  );
-
   useEffect(() => {
-    // Limit to 20 most recent stories for faster loading
     const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'), limit(20));
-
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       const storiesData: StoryWithProfile[] = [];
-
-      // Collect all unique user IDs first
       const userIds = new Set<string>();
       snapshot.docs.forEach(doc => {
         const data = doc.data();
-        if (data.userID) {
-          userIds.add(data.userID);
-        }
+        if (data.userID) userIds.add(data.userID);
       });
 
-      // Batch fetch all profiles at once
       const profilesMap = new Map<string, Profile>();
       if (userIds.size > 0) {
-        const profilesQuery = query(
-          collection(db, 'profiles'),
-          where('userID', 'in', Array.from(userIds))
-        );
+        const profilesQuery = query(collection(db, 'profiles'), where('userID', 'in', Array.from(userIds)));
         const profilesSnap = await getDocs(profilesQuery);
         profilesSnap.docs.forEach(doc => {
-          const profile = doc.data() as Profile;
-          profilesMap.set(profile.userID, profile);
+          const p = doc.data() as Profile;
+          profilesMap.set(p.userID, p);
         });
       }
 
-      // Build stories with profiles
       for (const docSnap of snapshot.docs) {
         const storyData = { ...docSnap.data(), id: docSnap.id } as StoryWithProfile;
-
-        // Skip if storyData doesn't have required fields
-        if (!storyData.userID || !storyData.storyID) {
-          continue;
-        }
-
-        // Attach profile from map
+        if (!storyData.userID || !storyData.storyID) continue;
         storyData.profile = profilesMap.get(storyData.userID);
-
         storiesData.push(storyData);
       }
 
       setStories(storiesData);
       setLoading(false);
     });
-
     return unsubscribe;
   }, []);
 
-  // Auto-reverse stories order every 2 minutes
   useEffect(() => {
-    const interval = setInterval(() => {
-      setShouldReverse(prev => !prev);
-    }, 2 * 60 * 1000); // 2 minutes
-
+    const interval = setInterval(() => setShouldReverse(prev => !prev), 2 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
-  // Track which stories the current user has liked
   useEffect(() => {
     if (!user) return;
-
-    const likesQuery = query(
-      collection(db, 'likes'),
-      where('userID', '==', user.uid)
-    );
-
+    const likesQuery = query(collection(db, 'likes'), where('userID', '==', user.uid));
     const unsubscribe = onSnapshot(likesQuery, (snapshot) => {
       const likedStoryIds = new Set<string>();
-      snapshot.docs.forEach((doc) => {
-        const likeData = doc.data();
-        if (likeData.storyID) {
-          likedStoryIds.add(likeData.storyID);
-        }
+      snapshot.docs.forEach(doc => {
+        const d = doc.data();
+        if (d.storyID) likedStoryIds.add(d.storyID);
       });
-      console.log('User likes updated:', Array.from(likedStoryIds));
       setUserLikes(likedStoryIds);
     });
-
     return unsubscribe;
   }, [user]);
 
@@ -145,152 +118,54 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
       setShowSignInModal(true);
       return;
     }
-
     if (!storyId) return;
 
     const isCurrentlyLiked = userLikes.has(storyId);
-
-    // Optimistic update - Update UI immediately
     setUserLikes(prev => {
-      const newSet = new Set(prev);
-      if (isCurrentlyLiked) {
-        newSet.delete(storyId);
-      } else {
-        newSet.add(storyId);
-      }
-      return newSet;
+      const next = new Set(prev);
+      isCurrentlyLiked ? next.delete(storyId) : next.add(storyId);
+      return next;
     });
-
-    // Optimistically update the story count in the UI
-    setStories(prevStories =>
-      prevStories.map(story =>
-        story.storyID === storyId
-          ? {
-            ...story,
-            likesCount: isCurrentlyLiked
-              ? Math.max(0, (story.likesCount || 0) - 1)
-              : (story.likesCount || 0) + 1
-          }
-          : story
-      )
-    );
-
-    // Also update detail story if it's open
+    setStories(prev => prev.map(s => s.storyID === storyId
+      ? { ...s, likesCount: isCurrentlyLiked ? Math.max(0, (s.likesCount || 0) - 1) : (s.likesCount || 0) + 1 }
+      : s));
     if (detailStory?.storyID === storyId) {
       setDetailStory(prev => prev ? {
         ...prev,
-        likesCount: isCurrentlyLiked
-          ? Math.max(0, (prev.likesCount || 0) - 1)
-          : (prev.likesCount || 0) + 1
+        likesCount: isCurrentlyLiked ? Math.max(0, (prev.likesCount || 0) - 1) : (prev.likesCount || 0) + 1
       } : null);
     }
 
-    // Prevent action if already in the desired state
     if (isCurrentlyLiked) {
-      // User wants to unlike
       try {
-        const likesQuery = query(
-          collection(db, 'likes'),
-          where('storyID', '==', storyId),
-          where('userID', '==', user.uid)
-        );
-        const likesSnapshot = await getDocs(likesQuery);
-
-        if (!likesSnapshot.empty) {
-          await deleteDoc(doc(db, 'likes', likesSnapshot.docs[0].id));
-
-          // Update story likes count (ensure it doesn't go below 0)
-          const storyQuery = query(collection(db, 'posts'), where('storyID', '==', storyId));
-          const storySnapshot = await getDocs(storyQuery);
-          if (!storySnapshot.empty) {
-            const storyDocRef = doc(db, 'posts', storySnapshot.docs[0].id);
-            const currentData = storySnapshot.docs[0].data();
-            const currentLikes = currentData.likesCount || 0;
-
-            // Only decrement if count is greater than 0
-            if (currentLikes > 0) {
-              await updateDoc(storyDocRef, {
-                likesCount: increment(-1)
-              });
-            } else {
-              // Ensure it's set to 0 if somehow it was negative
-              await updateDoc(storyDocRef, {
-                likesCount: 0
-              });
-            }
+        const lq = query(collection(db, 'likes'), where('storyID', '==', storyId), where('userID', '==', user.uid));
+        const ls = await getDocs(lq);
+        if (!ls.empty) {
+          await deleteDoc(doc(db, 'likes', ls.docs[0].id));
+          const sq = query(collection(db, 'posts'), where('storyID', '==', storyId));
+          const ss = await getDocs(sq);
+          if (!ss.empty) {
+            const current = ss.docs[0].data().likesCount || 0;
+            await updateDoc(doc(db, 'posts', ss.docs[0].id), { likesCount: current > 0 ? increment(-1) : 0 });
           }
         }
-      } catch (error) {
-        console.error('Error unliking:', error);
-        // Revert optimistic update on error
-        setUserLikes(prev => {
-          const newSet = new Set(prev);
-          newSet.add(storyId);
-          return newSet;
-        });
-        setStories(prevStories =>
-          prevStories.map(story =>
-            story.storyID === storyId
-              ? { ...story, likesCount: (story.likesCount || 0) + 1 }
-              : story
-          )
-        );
-        if (detailStory?.storyID === storyId) {
-          setDetailStory(prev => prev ? {
-            ...prev,
-            likesCount: (prev.likesCount || 0) + 1
-          } : null);
-        }
+      } catch {
+        setUserLikes(prev => { const n = new Set(prev); n.add(storyId); return n; });
+        setStories(prev => prev.map(s => s.storyID === storyId ? { ...s, likesCount: (s.likesCount || 0) + 1 } : s));
       }
     } else {
-      // User wants to like - only allow if not already liked
       try {
-        // Double check they haven't already liked it
-        const likesQuery = query(
-          collection(db, 'likes'),
-          where('storyID', '==', storyId),
-          where('userID', '==', user.uid)
-        );
-        const existingLike = await getDocs(likesQuery);
-
-        if (existingLike.empty) {
-          await addDoc(collection(db, 'likes'), {
-            storyID: storyId,
-            userID: user.uid,
-            createdAt: serverTimestamp()
-          });
-
-          // Update story likes count
-          const storyQuery = query(collection(db, 'posts'), where('storyID', '==', storyId));
-          const storySnapshot = await getDocs(storyQuery);
-          if (!storySnapshot.empty) {
-            const storyDocRef = doc(db, 'posts', storySnapshot.docs[0].id);
-            await updateDoc(storyDocRef, {
-              likesCount: increment(1)
-            });
-          }
+        const lq = query(collection(db, 'likes'), where('storyID', '==', storyId), where('userID', '==', user.uid));
+        const existing = await getDocs(lq);
+        if (existing.empty) {
+          await addDoc(collection(db, 'likes'), { storyID: storyId, userID: user.uid, createdAt: serverTimestamp() });
+          const sq = query(collection(db, 'posts'), where('storyID', '==', storyId));
+          const ss = await getDocs(sq);
+          if (!ss.empty) await updateDoc(doc(db, 'posts', ss.docs[0].id), { likesCount: increment(1) });
         }
-      } catch (error) {
-        console.error('Error liking:', error);
-        // Revert optimistic update on error
-        setUserLikes(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(storyId);
-          return newSet;
-        });
-        setStories(prevStories =>
-          prevStories.map(story =>
-            story.storyID === storyId
-              ? { ...story, likesCount: Math.max(0, (story.likesCount || 0) - 1) }
-              : story
-          )
-        );
-        if (detailStory?.storyID === storyId) {
-          setDetailStory(prev => prev ? {
-            ...prev,
-            likesCount: Math.max(0, (prev.likesCount || 0) - 1)
-          } : null);
-        }
+      } catch {
+        setUserLikes(prev => { const n = new Set(prev); n.delete(storyId); return n; });
+        setStories(prev => prev.map(s => s.storyID === storyId ? { ...s, likesCount: Math.max(0, (s.likesCount || 0) - 1) } : s));
       }
     }
   };
@@ -308,35 +183,17 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
   };
 
   const loadCommentsForStory = async (story: StoryWithProfile) => {
-    if (!story || !story.storyID) return;
-
+    if (!story?.storyID) return;
     setSelectedStory(story);
-
-    // Fetch comments for this story
-    const q = query(
-      collection(db, 'comments'),
-      where('storyID', '==', story.storyID),
-      orderBy('createdAt', 'asc')
-    );
-
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
+    const q = query(collection(db, 'comments'), where('storyID', '==', story.storyID), orderBy('createdAt', 'asc'));
+    onSnapshot(q, async (snapshot) => {
       const commentsData: Comment[] = [];
-
       for (const docSnap of snapshot.docs) {
         const commentData = { ...docSnap.data(), id: docSnap.id } as Comment;
-
-        // Fetch commenter's profile
-        const profileSnap = await getDocs(
-          query(collection(db, 'profiles'), where('userID', '==', commentData.userID))
-        );
-
-        if (!profileSnap.empty) {
-          commentData.displayName = profileSnap.docs[0].data().displayName;
-        }
-
+        const pSnap = await getDocs(query(collection(db, 'profiles'), where('userID', '==', commentData.userID)));
+        if (!pSnap.empty) commentData.displayName = pSnap.docs[0].data().displayName;
         commentsData.push(commentData);
       }
-
       setComments(commentsData);
     });
   };
@@ -347,42 +204,30 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
       setShowSignInModal(true);
       return;
     }
-
     openStoryDetail(story);
   };
 
   const handleQuickLike = async (e: React.MouseEvent, storyId: string) => {
-    e.stopPropagation(); // Prevent opening detail view
+    e.stopPropagation();
     await handleLike(storyId);
   };
 
   const handleQuickComment = async (e: React.MouseEvent, story: StoryWithProfile) => {
-    e.stopPropagation(); // Prevent opening detail view
+    e.stopPropagation();
     await openComments(story);
   };
 
   const handleAddComment = async () => {
-    if (!user || !user.uid || !profile || !selectedStory || !selectedStory.storyID || !newComment.trim()) return;
-
+    if (!user?.uid || !profile || !selectedStory?.storyID || !newComment.trim()) return;
     setSubmitting(true);
     try {
       await addDoc(collection(db, 'comments'), {
-        storyID: selectedStory.storyID,
-        userID: user.uid,
-        content: newComment.trim(),
-        createdAt: serverTimestamp()
+        storyID: selectedStory.storyID, userID: user.uid,
+        content: newComment.trim(), createdAt: serverTimestamp()
       });
-
-      // Update comments count
-      const storyQuery = query(collection(db, 'posts'), where('storyID', '==', selectedStory.storyID));
-      const storySnapshot = await getDocs(storyQuery);
-      if (!storySnapshot.empty) {
-        const storyDocRef = doc(db, 'posts', storySnapshot.docs[0].id);
-        await updateDoc(storyDocRef, {
-          commentsCount: increment(1)
-        });
-      }
-
+      const sq = query(collection(db, 'posts'), where('storyID', '==', selectedStory.storyID));
+      const ss = await getDocs(sq);
+      if (!ss.empty) await updateDoc(doc(db, 'posts', ss.docs[0].id), { commentsCount: increment(1) });
       setNewComment('');
     } catch (error) {
       console.error('Error adding comment:', error);
@@ -398,12 +243,8 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
 
   const handleSaveComment = async (commentId: string) => {
     if (!editedCommentText.trim()) return;
-
     try {
-      const commentRef = doc(db, 'comments', commentId);
-      await updateDoc(commentRef, {
-        content: editedCommentText.trim()
-      });
+      await updateDoc(doc(db, 'comments', commentId), { content: editedCommentText.trim() });
       setEditingComment(null);
       setEditedCommentText('');
     } catch (error) {
@@ -412,26 +253,14 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
   };
 
   const handleDeleteComment = async (commentId: string) => {
-    if (!selectedStory || !selectedStory.storyID) return;
-
+    if (!selectedStory?.storyID) return;
     try {
-      // Delete the comment
       await deleteDoc(doc(db, 'comments', commentId));
-
-      // Update comments count
-      const storyQuery = query(collection(db, 'posts'), where('storyID', '==', selectedStory.storyID));
-      const storySnapshot = await getDocs(storyQuery);
-      if (!storySnapshot.empty) {
-        const storyDocRef = doc(db, 'posts', storySnapshot.docs[0].id);
-        const currentData = storySnapshot.docs[0].data();
-        const currentComments = currentData.commentsCount || 0;
-
-        // Only decrement if count is greater than 0
-        if (currentComments > 0) {
-          await updateDoc(storyDocRef, {
-            commentsCount: increment(-1)
-          });
-        }
+      const sq = query(collection(db, 'posts'), where('storyID', '==', selectedStory.storyID));
+      const ss = await getDocs(sq);
+      if (!ss.empty) {
+        const current = ss.docs[0].data().commentsCount || 0;
+        if (current > 0) await updateDoc(doc(db, 'posts', ss.docs[0].id), { commentsCount: increment(-1) });
       }
     } catch (error) {
       console.error('Error deleting comment:', error);
@@ -440,203 +269,169 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
 
   const handleShare = async (platform?: string) => {
     if (!detailStory) return;
-
     const shareUrl = window.location.href;
-    const shareText = `Check out this amazing story on TaleHue: "${detailStory.content}"`;
+    const shareText = `Check out this story on TaleHue: "${detailStory.content}"`;
 
-    // Check if Web Share API is available (mobile devices)
     if (!platform && navigator.share) {
       try {
-        await navigator.share({
-          title: 'TaleHue Story',
-          text: shareText,
-          url: shareUrl,
-        });
+        await navigator.share({ title: 'TaleHue Story', text: shareText, url: shareUrl });
         return;
-      } catch (err) {
-        // User cancelled or error occurred
-        console.log('Share cancelled or failed:', err);
-        // Fall through to show share menu if share was cancelled
-      }
+      } catch {}
     }
 
-    // If no platform specified, show the share menu (desktop fallback)
-    if (!platform) {
-      setShowShareMenu(!showShareMenu);
-      return;
-    }
+    if (!platform) { setShowShareMenu(!showShareMenu); return; }
 
-    // Handle specific platform shares
     const encodedUrl = encodeURIComponent(shareUrl);
     const encodedText = encodeURIComponent(shareText);
-
     let shareLink = '';
 
     switch (platform) {
-      case 'twitter':
-        shareLink = `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`;
-        break;
-      case 'facebook':
-        shareLink = `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`;
-        break;
-      case 'whatsapp':
-        shareLink = `https://wa.me/?text=${encodedText}%20${encodedUrl}`;
-        break;
-      case 'telegram':
-        shareLink = `https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`;
-        break;
-      case 'reddit':
-        shareLink = `https://reddit.com/submit?url=${encodedUrl}&title=${encodedText}`;
-        break;
-      case 'instagram':
-        // Instagram doesn't support direct URL sharing via web, so we'll copy the link and show a message
-        navigator.clipboard.writeText(`${shareText}\n\n${shareUrl}`);
-        setCopiedLink(true);
-        setTimeout(() => setCopiedLink(false), 3000);
-        alert('Link copied! Open Instagram app and paste in a new post or story.');
-        return;
+      case 'twitter': shareLink = `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`; break;
+      case 'facebook': shareLink = `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`; break;
+      case 'whatsapp': shareLink = `https://wa.me/?text=${encodedText}%20${encodedUrl}`; break;
+      case 'telegram': shareLink = `https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`; break;
       case 'copy':
         navigator.clipboard.writeText(shareUrl);
         setCopiedLink(true);
         setTimeout(() => setCopiedLink(false), 2000);
         return;
     }
-
-    if (shareLink) {
-      window.open(shareLink, '_blank', 'noopener,noreferrer');
-      setShowShareMenu(false);
-    }
+    if (shareLink) { window.open(shareLink, '_blank', 'noopener,noreferrer'); setShowShareMenu(false); }
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-400 border-t-transparent"></div>
+        <div
+          className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
+          style={{ borderColor: 'var(--border)', borderTopColor: 'var(--accent)' }}
+        />
       </div>
     );
   }
 
-  // Reverse stories every 2 minutes for dynamic feed
   const displayStories = shouldReverse ? [...stories].reverse() : stories;
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-6 relative floating-particles">
-      {/* Instagram Follow Banner */}
+    <div className="max-w-5xl mx-auto px-4 py-6">
+      {/* Instagram follow banner */}
       <a
         href="https://www.instagram.com/talehue?igsh=MTd1dmJlYXh2Y25vYg%3D%3D&utm_source=qr"
         target="_blank"
         rel="noopener noreferrer"
-        className="block mb-6 glass-gradient rounded-2xl p-4 md:p-5 border-2 border-pink-500/40 hover:border-pink-500 transition-all group neon-glow card-lift shimmer-hover relative z-10"
+        className="flex items-center justify-between mb-6 px-4 py-3 rounded-xl transition-colors"
+        style={{
+          border: '1px solid var(--border)',
+          backgroundColor: 'var(--bg-secondary)',
+        }}
+        onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--bg-hover)')}
+        onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'var(--bg-secondary)')}
       >
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 md:gap-4">
-            <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-gradient-to-br from-pink-600 via-purple-600 to-orange-500 flex items-center justify-center shadow-xl group-hover:rotate-12 transition-transform pulse-glow">
-              <svg className="w-6 h-6 md:w-7 md:h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
-              </svg>
-            </div>
-            <div>
-              <p className="font-black text-white text-base md:text-lg flex items-center gap-2">
-                Follow @talehue
-                <span className="text-xs md:text-sm px-2 py-0.5 bg-pink-500/30 rounded-full text-pink-300 font-bold pulse-glow">New!</span>
-              </p>
-              <p className="text-purple-200 text-xs md:text-sm font-medium">Join the vibe on Instagram 🔥</p>
-            </div>
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-pink-500 via-purple-500 to-orange-400 flex items-center justify-center">
+            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+            </svg>
           </div>
-          <div className="hidden sm:block">
-            <div className="px-4 md:px-6 py-2 md:py-2.5 bg-gradient-to-r from-pink-600 to-purple-600 text-white font-black text-sm md:text-base rounded-full group-hover:shadow-xl transition-all button-glow">
-              Follow
-            </div>
+          <div>
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Follow @talehue</p>
+            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Stay updated on Instagram</p>
           </div>
         </div>
+        <span className="text-sm font-semibold px-4 py-1.5 rounded-lg" style={{ backgroundColor: 'var(--accent)', color: '#fff' }}>
+          Follow
+        </span>
       </a>
 
+      {/* Empty state */}
       {stories.length === 0 ? (
-        <div className="text-center py-12 md:py-20 fade-in relative z-10">
-          <div className="max-w-md mx-auto glass-gradient p-8 md:p-12 rounded-3xl border-2 border-purple-400/40">
-            <div className="w-20 h-20 md:w-28 md:h-28 mx-auto mb-4 md:mb-6 rounded-full bg-gradient-to-br from-purple-500 via-pink-600 to-orange-500 flex items-center justify-center shadow-2xl neon-glow-strong pulse-glow">
-              <PlusCircle size={40} className="text-white md:hidden" />
-              <PlusCircle size={56} className="text-white hidden md:block" />
-            </div>
-            <h3 className="text-2xl md:text-3xl font-black mb-3 md:mb-4 gradient-text-animated">
-              No stories yet!
-            </h3>
-            <p className="text-purple-200 text-lg font-medium mb-6">
-              Be the first to post some fire content!
-            </p>
-            <button
-              onClick={onNavigateToCreate}
-              className="px-8 md:px-10 py-4 md:py-5 bg-gradient-to-r from-purple-500 via-pink-600 to-orange-500 text-white font-black text-base md:text-lg rounded-full hover:shadow-2xl transition-all flex items-center gap-2 md:gap-3 mx-auto neon-glow-strong button-glow pulse-glow"
-            >
-              <PlusCircle size={20} className="md:hidden" />
-              <PlusCircle size={24} className="hidden md:block" />
-              Create Your Vibe
-            </button>
+        <div className="flex flex-col items-center justify-center py-20 fade-in">
+          <div
+            className="w-16 h-16 rounded-full flex items-center justify-center mb-4"
+            style={{ backgroundColor: 'var(--bg-hover)' }}
+          >
+            <PlusCircle size={32} style={{ color: 'var(--text-muted)' }} />
           </div>
+          <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>No stories yet</h3>
+          <p className="text-sm mb-5" style={{ color: 'var(--text-secondary)' }}>
+            Be the first to share a story.
+          </p>
+          <button
+            onClick={onNavigateToCreate}
+            className="px-6 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors"
+            style={{ backgroundColor: 'var(--accent)' }}
+            onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--accent-hover)')}
+            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'var(--accent)')}
+          >
+            Create a Story
+          </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-          {displayStories.map((story, index) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {displayStories.map((story) => (
             <div
               key={story.storyID}
-              className="glass-gradient rounded-2xl shadow-xl overflow-hidden border border-purple-400/40 hover:border-purple-400 transition-all duration-300 cursor-pointer group card-lift"
+              className="rounded-xl overflow-hidden cursor-pointer stagger-item transition-colors"
+              style={{ border: '1px solid var(--border)', backgroundColor: 'var(--bg-elevated)' }}
             >
-              {/* User Info Header */}
-              <div className="p-3 border-b border-white/10 bg-gradient-to-r from-purple-900/30 via-pink-900/30 to-orange-900/30">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 via-pink-600 to-orange-500 flex items-center justify-center text-white font-black text-xs shadow-lg ring-2 ring-white/20 overflow-hidden">
-                    {story.profile?.profileImage ? (
-                      <img
-                        src={story.profile.profileImage}
-                        alt={story.profile.displayName}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      story.profile?.displayName.charAt(0).toUpperCase() || 'A'
-                    )}
-                  </div>
-                  <p className="font-bold text-white text-sm">
-                    {story.profile?.displayName || 'Anonymous'}
-                  </p>
+              {/* Header */}
+              <div
+                className="flex items-center gap-2.5 px-3 py-2.5"
+                style={{ borderBottom: '1px solid var(--border)' }}
+              >
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 overflow-hidden"
+                  style={{ backgroundColor: '#737373' }}
+                >
+                  {story.profile?.profileImage ? (
+                    <img src={story.profile.profileImage} alt={story.profile.displayName} className="w-full h-full object-cover" />
+                  ) : (
+                    story.profile?.displayName.charAt(0).toUpperCase() || 'A'
+                  )}
                 </div>
+                <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  {story.profile?.displayName || 'Anonymous'}
+                </p>
               </div>
 
-              {/* Story Image */}
+              {/* Image */}
               {story.imageURL && (
                 <div className="relative aspect-square overflow-hidden" onClick={() => openStoryDetail(story)}>
                   <img
                     src={story.imageURL}
                     alt={story.content}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                    className="w-full h-full object-cover transition-transform duration-500"
+                    onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.03)')}
+                    onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
                   />
                 </div>
               )}
 
-              {/* Story Footer - Description and Actions */}
-              <div className="p-3 border-t border-white/10 bg-gradient-to-r from-purple-900/20 via-pink-900/20 to-orange-900/20">
-                {/* Action Buttons */}
+              {/* Footer */}
+              <div className="px-3 pt-2.5 pb-3" style={{ borderTop: '1px solid var(--border)' }}>
+                {/* Actions */}
                 <div className="flex items-center gap-4 mb-2">
                   <button
                     onClick={(e) => handleQuickLike(e, story.storyID)}
-                    className={`flex items-center gap-1.5 transition-all duration-300 button-glow ${userLikes.has(story.storyID)
-                      ? 'text-pink-400'
-                      : 'text-white/80 hover:text-pink-400'
-                      }`}
+                    className="flex items-center gap-1.5 transition-colors"
+                    style={{ color: userLikes.has(story.storyID) ? 'var(--danger)' : 'var(--text-secondary)' }}
                   >
-                    <Heart size={20} fill={userLikes.has(story.storyID) ? 'currentColor' : 'none'} strokeWidth={2.5} />
-                    <span className="font-bold text-sm">{story.likesCount || 0}</span>
+                    <Heart size={20} fill={userLikes.has(story.storyID) ? 'currentColor' : 'none'} strokeWidth={2} />
+                    <span className="text-sm font-medium">{story.likesCount || 0}</span>
                   </button>
                   <button
                     onClick={(e) => handleQuickComment(e, story)}
-                    className="flex items-center gap-1.5 text-white/80 hover:text-purple-400 transition-all duration-300 button-glow"
+                    className="flex items-center gap-1.5 transition-colors"
+                    style={{ color: 'var(--text-secondary)' }}
+                    onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-primary)')}
+                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
                   >
-                    <MessageCircle size={20} strokeWidth={2.5} />
-                    <span className="font-bold text-sm">{story.commentsCount || 0}</span>
+                    <MessageCircle size={20} strokeWidth={2} />
+                    <span className="text-sm font-medium">{story.commentsCount || 0}</span>
                   </button>
                 </div>
-
-                {/* Story Description */}
-                <p className="text-white text-base md:text-lg leading-tight font-semibold line-clamp-2">
+                {/* Caption */}
+                <p className="text-sm leading-snug line-clamp-2" style={{ color: 'var(--text-primary)' }}>
                   {story.content}
                 </p>
               </div>
@@ -648,141 +443,182 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
       {/* Story Detail Modal */}
       {detailStory && (
         <div
-          className="fixed inset-0 bg-black/90 backdrop-blur-lg flex items-center justify-center z-50 p-0 md:p-4 animate-in fade-in duration-300"
+          className="fixed inset-0 flex items-center justify-center z-50 p-0 md:p-6"
+          style={{ backgroundColor: 'var(--modal-overlay)' }}
           onClick={() => setShowShareMenu(false)}
         >
-          <div className="relative flex items-center justify-center w-full h-full md:h-auto">
+          <div
+            className="relative flex items-center justify-center w-full h-full md:h-auto"
+          >
             <div
-              className="glass rounded-none md:rounded-3xl max-w-5xl w-full h-full md:h-auto md:max-h-[90vh] flex flex-col md:flex-row shadow-2xl border-0 md:border border-purple-400/30 overflow-hidden"
+              className="rounded-none md:rounded-xl max-w-4xl w-full h-full md:h-auto md:max-h-[90vh] flex flex-col md:flex-row overflow-hidden zoom-in"
+              style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Left: Image Section */}
+              {/* Left: Image */}
               <div className="md:w-1/2 bg-black flex items-center justify-center relative max-h-[50vh] md:max-h-none">
                 <button
                   onClick={closeStoryDetail}
-                  className="absolute top-2 md:top-4 right-2 md:right-4 p-2 md:p-3 bg-black/60 hover:bg-black/80 rounded-full transition-all duration-300 transform hover:rotate-90 z-10 backdrop-blur-sm"
+                  className="absolute top-3 right-3 p-2 rounded-full z-10 transition-colors"
+                  style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
                 >
-                  <X size={20} className="text-white md:hidden" />
-                  <X size={24} className="text-white hidden md:block" />
+                  <X size={20} className="text-white" />
                 </button>
                 {detailStory.imageURL && (
-                  <img
-                    src={detailStory.imageURL}
-                    alt={detailStory.content}
-                    className="w-full h-full object-contain"
-                  />
+                  <img src={detailStory.imageURL} alt={detailStory.content} className="w-full h-full object-contain" />
                 )}
               </div>
 
-              {/* Right: Details & Comments Section */}
-              <div className="md:w-1/2 flex flex-col bg-gradient-to-br from-zinc-900/95 to-zinc-950/95 backdrop-blur-xl overflow-y-auto">
-                {/* User Info Header */}
-                <div className="p-4 md:p-6 border-b border-white/10 bg-gradient-to-r from-purple-900/20 via-pink-900/20 to-orange-900/20">
-                  <div className="flex items-center gap-3 md:gap-4">
-                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-purple-500 via-pink-600 to-orange-500 flex items-center justify-center text-white font-black text-base md:text-lg shadow-lg ring-2 ring-white/20 overflow-hidden">
-                      {detailStory.profile?.profileImage ? (
-                        <img
-                          src={detailStory.profile.profileImage}
-                          alt={detailStory.profile.displayName}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        detailStory.profile?.displayName.charAt(0).toUpperCase() || 'A'
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-black text-white text-lg">
-                        {detailStory.profile?.displayName || 'Anonymous'}
-                      </p>
-                      <p className="text-sm text-purple-200">
-                        {detailStory.createdAt?.toDate?.()?.toLocaleDateString() || 'Just now'}
-                      </p>
-                    </div>
+              {/* Right: Details & Comments */}
+              <div
+                className="md:w-1/2 flex flex-col overflow-y-auto"
+                style={{ backgroundColor: 'var(--bg-elevated)' }}
+              >
+                {/* Author row */}
+                <div
+                  className="flex items-center gap-3 px-4 py-3"
+                  style={{ borderBottom: '1px solid var(--border)' }}
+                >
+                  <div
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 overflow-hidden"
+                    style={{ backgroundColor: '#737373' }}
+                  >
+                    {detailStory.profile?.profileImage ? (
+                      <img src={detailStory.profile.profileImage} alt={detailStory.profile.displayName} className="w-full h-full object-cover" />
+                    ) : (
+                      detailStory.profile?.displayName.charAt(0).toUpperCase() || 'A'
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                      {detailStory.profile?.displayName || 'Anonymous'}
+                    </p>
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                      {detailStory.createdAt?.toDate?.()?.toLocaleDateString() || 'Just now'}
+                    </p>
                   </div>
                 </div>
 
-                {/* Story Content */}
-                <div className="p-6 border-b border-white/10">
-                  <p className="text-white text-xl md:text-2xl leading-relaxed font-semibold mb-4">
+                {/* Caption + Actions */}
+                <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
+                  <p className="text-sm leading-relaxed mb-3" style={{ color: 'var(--text-primary)' }}>
                     {detailStory.content}
                   </p>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-5">
                     <button
                       onClick={(e) => handleQuickLike(e, detailStory.storyID)}
-                      className={`group flex items-center gap-3 transition-all duration-300 transform hover:scale-110 ${userLikes.has(detailStory.storyID)
-                        ? 'text-pink-500'
-                        : 'text-zinc-400 hover:text-pink-500'
-                        }`}
+                      className="flex items-center gap-1.5 transition-colors"
+                      style={{ color: userLikes.has(detailStory.storyID) ? 'var(--danger)' : 'var(--text-secondary)' }}
                     >
-                      <div className={`p-3 rounded-full ${userLikes.has(detailStory.storyID) ? 'bg-pink-500/20' : 'bg-white/5 group-hover:bg-pink-500/20'} transition-all`}>
-                        <Heart size={22} fill={userLikes.has(detailStory.storyID) ? 'currentColor' : 'none'} strokeWidth={2.5} />
-                      </div>
-                      <span className="font-bold text-lg">{detailStory.likesCount || 0}</span>
+                      <Heart size={22} fill={userLikes.has(detailStory.storyID) ? 'currentColor' : 'none'} strokeWidth={2} />
+                      <span className="text-sm font-medium">{detailStory.likesCount || 0}</span>
                     </button>
-                    <div className="flex items-center gap-3 text-purple-400">
-                      <div className="p-3 rounded-full bg-purple-400/20">
-                        <MessageCircle size={22} strokeWidth={2.5} />
-                      </div>
-                      <span className="font-bold text-lg">{detailStory.commentsCount || 0}</span>
+                    <div className="flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
+                      <MessageCircle size={22} strokeWidth={2} />
+                      <span className="text-sm font-medium">{detailStory.commentsCount || 0}</span>
                     </div>
-                    <button
-                      onClick={() => handleShare()}
-                      className="group flex items-center gap-3 text-zinc-400 hover:text-green-400 transition-all duration-300 transform hover:scale-110"
-                    >
-                      <div className="p-3 rounded-full bg-white/5 group-hover:bg-green-400/20 transition-all">
-                        <Share2 size={22} strokeWidth={2.5} />
-                      </div>
-                    </button>
+                    <div className="relative">
+                      <button
+                        onClick={() => handleShare()}
+                        className="flex items-center gap-1.5 transition-colors"
+                        style={{ color: 'var(--text-secondary)' }}
+                        onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-primary)')}
+                        onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
+                      >
+                        <Share2 size={22} strokeWidth={2} />
+                      </button>
+
+                      {/* Share Menu */}
+                      {showShareMenu && (
+                        <div
+                          className="absolute bottom-8 left-0 rounded-xl shadow-xl p-3 w-52 z-10"
+                          style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <p className="text-xs font-semibold mb-2 px-1" style={{ color: 'var(--text-secondary)' }}>Share</p>
+                          {[
+                            { id: 'twitter', label: 'Twitter / X' },
+                            { id: 'facebook', label: 'Facebook' },
+                            { id: 'whatsapp', label: 'WhatsApp' },
+                            { id: 'telegram', label: 'Telegram' },
+                          ].map(({ id, label }) => (
+                            <button
+                              key={id}
+                              onClick={() => handleShare(id)}
+                              className="w-full text-left px-2 py-2 rounded-lg text-sm transition-colors"
+                              style={{ color: 'var(--text-primary)' }}
+                              onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--bg-hover)')}
+                              onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                          <button
+                            onClick={() => handleShare('copy')}
+                            className="w-full text-left px-2 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors"
+                            style={{ color: copiedLink ? 'var(--success)' : 'var(--text-primary)' }}
+                            onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--bg-hover)')}
+                            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+                          >
+                            {copiedLink ? <CheckCircle size={14} /> : <Copy size={14} />}
+                            {copiedLink ? 'Link Copied!' : 'Copy Link'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                {/* Comments List */}
-                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-3 md:space-y-4">
-                  <h3 className="text-xl md:text-2xl font-black text-white mb-4">Comments 💬</h3>
+                {/* Comments */}
+                <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Comments</p>
                   {comments.length === 0 ? (
-                    <div className="text-center py-12">
-                      <MessageCircle size={48} className="mx-auto mb-3 text-purple-300/50" />
-                      <p className="text-purple-200/70 text-base">No comments yet. Start the convo! 🔥</p>
-                    </div>
+                    <p className="text-sm py-4 text-center" style={{ color: 'var(--text-muted)' }}>
+                      No comments yet.
+                    </p>
                   ) : (
                     comments.map((comment) => (
-                      <div key={comment.id} className="flex gap-3 p-4 rounded-2xl bg-white/10 hover:bg-white/15 transition-all border border-white/10 group backdrop-blur-sm">
-                        <div className="w-11 h-11 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-purple-500 via-orange-500 to-purple-400 flex items-center justify-center text-white text-base md:text-sm font-black shrink-0 shadow-lg">
+                      <div key={comment.id} className="flex gap-2.5">
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                          style={{ backgroundColor: '#737373' }}
+                        >
                           {comment.displayName?.charAt(0).toUpperCase() || 'A'}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
-                            <p className="font-black text-base md:text-sm text-white">
+                            <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
                               {comment.displayName || 'Anonymous'}
                             </p>
-                            {/* Edit/Delete buttons - always visible on mobile, hover on desktop */}
                             {user && comment.userID === user.uid && (
-                              <div className="flex gap-1.5 md:gap-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0">
+                              <div className="flex gap-1 shrink-0">
                                 {editingComment === comment.id ? (
                                   <button
                                     onClick={() => handleSaveComment(comment.id)}
-                                    className="p-2 bg-green-500/20 hover:bg-green-500/30 rounded-lg transition-all"
-                                    title="Save"
+                                    className="p-1 rounded transition-colors"
+                                    style={{ color: 'var(--success)' }}
                                   >
-                                    <Check size={18} className="text-green-400" />
+                                    <Check size={14} />
                                   </button>
                                 ) : (
                                   <button
                                     onClick={() => handleEditComment(comment.id, comment.content)}
-                                    className="p-2 bg-orange-500/20 hover:bg-orange-500/30 rounded-lg transition-all"
-                                    title="Edit"
+                                    className="p-1 rounded transition-colors"
+                                    style={{ color: 'var(--text-muted)' }}
+                                    onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-primary)')}
+                                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
                                   >
-                                    <Edit2 size={18} className="text-orange-400" />
+                                    <Edit2 size={14} />
                                   </button>
                                 )}
                                 <button
                                   onClick={() => handleDeleteComment(comment.id)}
-                                  className="p-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg transition-all"
-                                  title="Delete"
+                                  className="p-1 rounded transition-colors"
+                                  style={{ color: 'var(--text-muted)' }}
+                                  onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
+                                  onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
                                 >
-                                  <Trash2 size={18} className="text-red-400" />
+                                  <Trash2 size={14} />
                                 </button>
                               </div>
                             )}
@@ -793,13 +629,15 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
                               value={editedCommentText}
                               onChange={(e) => setEditedCommentText(e.target.value)}
                               onKeyPress={(e) => e.key === 'Enter' && handleSaveComment(comment.id)}
-                              className="w-full mt-2 px-3 py-2.5 glass rounded-lg text-white placeholder-purple-200/50 focus:outline-none focus:ring-2 focus:ring-orange-500 font-medium border border-white/10 text-base"
+                              className="input-base mt-1 text-sm"
                               autoFocus
                             />
                           ) : (
-                            <p className="text-white mt-2 leading-relaxed text-base break-words">{comment.content}</p>
+                            <p className="text-sm mt-0.5 break-words" style={{ color: 'var(--text-primary)' }}>
+                              {comment.content}
+                            </p>
                           )}
-                          <p className="text-xs md:text-xs text-purple-300/80 mt-2 font-medium">
+                          <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
                             {comment.createdAt?.toDate?.()?.toLocaleString() || 'Just now'}
                           </p>
                         </div>
@@ -808,231 +646,115 @@ export default function Feed({ onNavigateToCreate }: FeedProps) {
                   )}
                 </div>
 
-                {/* Add Comment */}
+                {/* Add comment */}
                 {user ? (
-                  <div className="p-4 md:p-6 border-t border-white/20 bg-gradient-to-r from-purple-900/30 via-pink-900/30 to-orange-900/30 backdrop-blur-sm">
-                    <div className="flex gap-2 md:gap-3">
+                  <div className="px-4 py-3" style={{ borderTop: '1px solid var(--border)' }}>
+                    <div className="flex gap-2">
                       <input
                         type="text"
                         value={newComment}
                         onChange={(e) => setNewComment(e.target.value)}
                         onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleAddComment()}
-                        placeholder="Post your thoughts..."
-                        className="flex-1 px-4 md:px-6 py-3 md:py-4 glass rounded-full text-white text-base placeholder-purple-200/60 focus:outline-none focus:ring-2 focus:ring-purple-400 font-medium border border-white/20"
+                        placeholder="Add a comment…"
+                        className="input-base text-sm"
                         disabled={submitting}
                       />
                       <button
                         onClick={handleAddComment}
                         disabled={!newComment.trim() || submitting}
-                        className="px-6 md:px-8 py-3 md:py-4 bg-gradient-to-r from-purple-500 via-pink-600 to-orange-500 text-white rounded-full hover:shadow-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-black neon-glow"
+                        className="px-3 py-2 rounded-lg text-white text-sm font-semibold disabled:opacity-50 transition-colors"
+                        style={{ backgroundColor: 'var(--accent)' }}
+                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--accent-hover)')}
+                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'var(--accent)')}
                       >
-                        <Send size={20} />
+                        <Send size={16} />
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="p-4 md:p-6 border-t border-white/20 bg-gradient-to-r from-purple-900/30 via-pink-900/30 to-orange-900/30 text-center backdrop-blur-sm">
+                  <div className="px-4 py-3 text-center" style={{ borderTop: '1px solid var(--border)' }}>
                     <button
-                      onClick={async () => {
-                        try {
-                          await signInWithGoogle();
-                        } catch (error) {
-                          console.error('Sign-in error:', error);
-                        }
-                      }}
-                      className="px-8 py-4 bg-gradient-to-r from-purple-500 via-pink-600 to-orange-500 text-white rounded-full hover:shadow-2xl transition-all font-black neon-glow"
+                      onClick={async () => { try { await signInWithGoogle(); } catch {} }}
+                      className="px-6 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors"
+                      style={{ backgroundColor: 'var(--accent)' }}
                     >
-                      Sign In to Comment 💬
+                      Sign in to comment
                     </button>
                   </div>
                 )}
               </div>
             </div>
-
-            {/* Share Menu - Positioned to the right of the modal */}
-            {showShareMenu && (
-              <div
-                className="fixed right-4 top-1/2 -translate-y-1/2 glass rounded-2xl border border-white/20 shadow-2xl p-4 w-72 z-[60]"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <h4 className="text-white font-black mb-3 text-sm">Share this story</h4>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => handleShare('twitter')}
-                    className="flex items-center gap-2 p-3 rounded-xl bg-white/5 hover:bg-blue-400/20 border border-white/10 hover:border-blue-400/30 transition-all group"
-                  >
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                    </svg>
-                    <span className="text-sm font-bold text-white">Twitter</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleShare('facebook')}
-                    className="flex items-center gap-2 p-3 rounded-xl bg-white/5 hover:bg-blue-600/20 border border-white/10 hover:border-blue-600/30 transition-all group"
-                  >
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                    </svg>
-                    <span className="text-sm font-bold text-white">Facebook</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleShare('whatsapp')}
-                    className="flex items-center gap-2 p-3 rounded-xl bg-white/5 hover:bg-green-500/20 border border-white/10 hover:border-green-500/30 transition-all group"
-                  >
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.890-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
-                    </svg>
-                    <span className="text-sm font-bold text-white">WhatsApp</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleShare('telegram')}
-                    className="flex items-center gap-2 p-3 rounded-xl bg-white/5 hover:bg-sky-500/20 border border-white/10 hover:border-sky-500/30 transition-all group"
-                  >
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
-                    </svg>
-                    <span className="text-sm font-bold text-white">Telegram</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleShare('reddit')}
-                    className="flex items-center gap-2 p-3 rounded-xl bg-white/5 hover:bg-orange-500/20 border border-white/10 hover:border-orange-500/30 transition-all group"
-                  >
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z" />
-                    </svg>
-                    <span className="text-sm font-bold text-white">Reddit</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleShare('instagram')}
-                    className="flex items-center gap-2 p-3 rounded-xl bg-white/5 hover:bg-pink-600/20 border border-white/10 hover:border-pink-600/30 transition-all group"
-                  >
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.14.63c-.789.306-1.459.717-2.126 1.384S.935 3.35.63 4.14C.333 4.905.131 5.775.072 7.053.012 8.333 0 8.74 0 12s.015 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.306.788.717 1.459 1.384 2.126.667.666 1.336 1.079 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.015 4.947-.072c1.277-.06 2.148-.262 2.913-.558.788-.306 1.459-.718 2.126-1.384.666-.667 1.079-1.335 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.28.072-1.687.072-4.947s-.015-3.667-.072-4.947c-.06-1.277-.262-2.149-.558-2.913-.306-.789-.718-1.459-1.384-2.126C21.319 1.347 20.651.935 19.86.63c-.765-.297-1.636-.499-2.913-.558C15.667.012 15.26 0 12 0zm0 2.16c3.203 0 3.585.016 4.85.071 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.266.07 1.646.07 4.85s-.015 3.585-.074 4.85c-.061 1.17-.256 1.805-.421 2.227-.224.562-.479.96-.899 1.382-.419.419-.824.679-1.38.896-.42.164-1.065.36-2.235.413-1.274.057-1.649.07-4.859.07-3.211 0-3.586-.015-4.859-.074-1.171-.061-1.816-.256-2.236-.421-.569-.224-.96-.479-1.379-.899-.421-.419-.69-.824-.9-1.38-.165-.42-.359-1.065-.42-2.235-.045-1.26-.061-1.649-.061-4.844 0-3.196.016-3.586.061-4.861.061-1.17.255-1.814.42-2.234.21-.57.479-.96.9-1.381.419-.419.81-.689 1.379-.898.42-.166 1.051-.361 2.221-.421 1.275-.045 1.65-.06 4.859-.06l.045.03zm0 3.678c-3.405 0-6.162 2.76-6.162 6.162 0 3.405 2.76 6.162 6.162 6.162 3.405 0 6.162-2.76 6.162-6.162 0-3.405-2.76-6.162-6.162-6.162zM12 16c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm7.846-10.405c0 .795-.646 1.44-1.44 1.44-.795 0-1.44-.646-1.44-1.44 0-.794.646-1.439 1.44-1.439.793-.001 1.44.645 1.44 1.439z" />
-                    </svg>
-                    <span className="text-sm font-bold text-white">Instagram</span>
-                  </button>
-                </div>
-
-                <div className="mt-3 pt-3 border-t border-white/10">
-                  <button
-                    onClick={() => handleShare('copy')}
-                    className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-white/5 hover:bg-purple-500/20 border border-white/10 hover:border-purple-500/30 transition-all"
-                  >
-                    {copiedLink ? (
-                      <>
-                        <CheckCircle size={18} className="text-green-400" />
-                        <span className="text-sm font-bold text-green-400">Link Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy size={18} className="text-white" />
-                        <span className="text-sm font-bold text-white">Copy Link</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}
 
       {/* Sign In Modal */}
       {showSignInModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
-          <div className="glass rounded-3xl max-w-md w-full shadow-2xl transform animate-in zoom-in-95 duration-300 border border-purple-400/30">
-            {/* Header with Gradient */}
-            <div className="relative overflow-hidden rounded-t-3xl">
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 via-pink-600/20 to-orange-500/20"></div>
-              <div className="relative p-8 text-center">
-                <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-gradient-to-br from-purple-500 via-pink-600 to-orange-500 flex items-center justify-center shadow-2xl neon-glow">
-                  {signInAction === 'like' ? (
-                    <Heart size={42} className="text-white" fill="white" />
-                  ) : (
-                    <MessageCircle size={42} className="text-white" />
-                  )}
-                </div>
-                <h3 className="text-3xl font-black text-white mb-3 neon-text">
-                  {signInAction === 'like' ? 'Spread the Love! 💖' : 'Join the Chat! 💬'}
-                </h3>
-                <p className="text-purple-100 text-lg">
-                  {signInAction === 'like'
-                    ? 'Sign in to vibe with creators'
-                    : 'Sign in to post your thoughts 💭'}
-                </p>
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 p-4"
+          style={{ backgroundColor: 'var(--modal-overlay)' }}
+        >
+          <div
+            className="rounded-xl max-w-sm w-full p-6 zoom-in"
+            style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
+          >
+            <div className="text-center mb-6">
+              <div
+                className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3"
+                style={{ backgroundColor: 'var(--bg-hover)' }}
+              >
+                {signInAction === 'like' ? (
+                  <Heart size={24} style={{ color: 'var(--danger)' }} />
+                ) : (
+                  <MessageCircle size={24} style={{ color: 'var(--accent)' }} />
+                )}
               </div>
-            </div>
-
-            {/* Content */}
-            <div className="p-8 pt-4">
-              <div className="space-y-3 mb-6">
-                <div className="flex items-center gap-3 text-sm text-purple-100">
-                  <div className="w-10 h-10 rounded-full bg-purple-500/30 flex items-center justify-center shrink-0 border border-purple-400/30">
-                    <Heart size={18} className="text-purple-300" />
-                  </div>
-                  <span className="font-medium">Like & save your fav stories</span>
-                </div>
-                <div className="flex items-center gap-3 text-sm text-purple-100">
-                  <div className="w-10 h-10 rounded-full bg-pink-600/30 flex items-center justify-center shrink-0 border border-pink-500/30">
-                    <MessageCircle size={18} className="text-pink-400" />
-                  </div>
-                  <span className="font-medium">Connect with the community</span>
-                </div>
-                <div className="flex items-center gap-3 text-sm text-purple-100">
-                  <div className="w-10 h-10 rounded-full bg-orange-600/30 flex items-center justify-center shrink-0 border border-orange-500/30">
-                    <Share2 size={18} className="text-orange-400" />
-                  </div>
-                  <span className="font-medium">Share the vibes with friends</span>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="space-y-3">
-                <button
-                  onClick={async () => {
-                    setSigningIn(true);
-                    try {
-                      await signInWithGoogle();
-                      setShowSignInModal(false);
-                    } catch (error) {
-                      console.error('Sign-in error:', error);
-                    } finally {
-                      setSigningIn(false);
-                    }
-                  }}
-                  disabled={signingIn}
-                  className="w-full px-8 py-5 bg-gradient-to-r from-purple-500 via-pink-600 to-orange-500 text-white font-black text-lg rounded-full hover:shadow-2xl transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 neon-glow"
-                >
-                  {signingIn ? (
-                    <>
-                      <div className="animate-spin rounded-full h-6 w-6 border-3 border-white border-t-transparent"></div>
-                      Signing in...
-                    </>
-                  ) : (
-                    <>
-                      <GoogleIcon />
-                      Sign In with Google
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={() => setShowSignInModal(false)}
-                  disabled={signingIn}
-                  className="w-full px-8 py-5 bg-white/5 hover:bg-white/10 text-white font-bold text-lg rounded-full transition-all disabled:opacity-50 border border-white/10"
-                >
-                  Maybe Later
-                </button>
-              </div>
-
-              <p className="text-center text-xs text-purple-300/70 mt-6">
-                By signing in, you vibe with our Terms & Privacy 🤝
+              <h3 className="text-lg font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+                {signInAction === 'like' ? 'Sign in to like' : 'Sign in to comment'}
+              </h3>
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                {signInAction === 'like'
+                  ? 'Sign in to like and save stories.'
+                  : 'Sign in to join the conversation.'}
               </p>
             </div>
+
+            <div className="space-y-2">
+              <button
+                onClick={async () => {
+                  setSigningIn(true);
+                  try { await signInWithGoogle(); setShowSignInModal(false); }
+                  catch (error) { console.error('Sign-in error:', error); }
+                  finally { setSigningIn(false); }
+                }}
+                disabled={signingIn}
+                className="w-full flex items-center justify-center gap-2.5 py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-50 transition-colors"
+                style={{ backgroundColor: 'var(--accent)' }}
+              >
+                {signingIn ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <GoogleIcon />
+                )}
+                {signingIn ? 'Signing in…' : 'Sign in with Google'}
+              </button>
+              <button
+                onClick={() => setShowSignInModal(false)}
+                disabled={signingIn}
+                className="w-full py-2.5 rounded-lg text-sm font-medium disabled:opacity-50 transition-colors"
+                style={{
+                  color: 'var(--text-secondary)',
+                  border: '1px solid var(--border)',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--bg-hover)')}
+                onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+              >
+                Not now
+              </button>
+            </div>
+            <p className="text-center text-xs mt-4" style={{ color: 'var(--text-muted)' }}>
+              By signing in, you agree to our Terms &amp; Privacy Policy.
+            </p>
           </div>
         </div>
       )}

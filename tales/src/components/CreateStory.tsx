@@ -4,11 +4,10 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, addDoc } from 'firebase/firestore';
-import { Sparkles, Image as ImageIcon, Loader2, RefreshCw, Send, CheckCircle, XCircle } from 'lucide-react';
+import { Image as ImageIcon, Loader2, RefreshCw, Send, CheckCircle, XCircle, Wand2 } from 'lucide-react';
 
-// Google Icon Component
 const GoogleIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
     <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4" />
     <path d="M9.003 18c2.43 0 4.467-.806 5.956-2.18L12.05 13.56c-.806.54-1.837.86-3.047.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9.003 18z" fill="#34A853" />
     <path d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.347 6.173 0 7.548 0 9.001c0 1.452.348 2.827.957 4.041l3.007-2.332z" fill="#FBBC05" />
@@ -25,8 +24,8 @@ export default function CreateStory() {
   const [imageBlob, setImageBlob] = useState<Blob | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [signingIn, setSigningIn] = useState(false);
 
-  // Content moderation - List of inappropriate words
   const inappropriateWords = [
     'sex', 'nude', 'naked', 'porn', 'xxx', 'boobs', 'breast', 'penis', 'vagina',
     'dick', 'cock', 'pussy', 'fuck', 'shit', 'ass', 'bitch', 'damn', 'hell',
@@ -35,337 +34,122 @@ export default function CreateStory() {
     'gore', 'nsfw', 'adult', 'sexual', 'erotic', 'fetish', 'kinky'
   ];
 
-  // Function to check if content contains inappropriate words
   const containsInappropriateContent = (text: string): boolean => {
     const lowerText = text.toLowerCase();
-    return inappropriateWords.some(word => {
-      // Check for whole word matches to avoid false positives
-      const regex = new RegExp(`\\b${word}\\b`, 'i');
-      return regex.test(lowerText);
-    });
+    return inappropriateWords.some(word => new RegExp(`\\b${word}\\b`, 'i').test(lowerText));
   };
 
-  // Load persisted data on component mount
   useEffect(() => {
     const savedContent = localStorage.getItem('talehue_draft_content');
     const savedImage = localStorage.getItem('talehue_draft_image');
-
-    if (savedContent) {
-      setContent(savedContent);
-    }
-
+    if (savedContent) setContent(savedContent);
     if (savedImage) {
-      // Validate that it's a proper data URL before trying to fetch
       if (savedImage.startsWith('blob:') || savedImage.startsWith('data:image/')) {
         setPreviewImage(savedImage);
-        // Convert base64 back to blob
-        fetch(savedImage)
-          .then(res => res.blob())
-          .then(blob => setImageBlob(blob))
-          .catch(err => {
-            console.error('Error loading saved image:', err);
-            // Clear invalid image from localStorage
-            localStorage.removeItem('talehue_draft_image');
-            setPreviewImage(null);
-          });
+        fetch(savedImage).then(res => res.blob()).then(blob => setImageBlob(blob)).catch(() => {
+          localStorage.removeItem('talehue_draft_image');
+          setPreviewImage(null);
+        });
       } else {
-        // Invalid format, clear it
         localStorage.removeItem('talehue_draft_image');
       }
     }
   }, []);
 
-  // Persist content to localStorage
   useEffect(() => {
-    if (content) {
-      localStorage.setItem('talehue_draft_content', content);
-    } else {
-      localStorage.removeItem('talehue_draft_content');
-    }
+    if (content) localStorage.setItem('talehue_draft_content', content);
+    else localStorage.removeItem('talehue_draft_content');
   }, [content]);
 
-  // Persist image to localStorage
   useEffect(() => {
-    if (previewImage) {
-      localStorage.setItem('talehue_draft_image', previewImage);
-    } else {
-      localStorage.removeItem('talehue_draft_image');
-    }
+    if (previewImage) localStorage.setItem('talehue_draft_image', previewImage);
+    else localStorage.removeItem('talehue_draft_image');
   }, [previewImage]);
 
-  // Predefined suggestions
   const suggestions = [
     "Cyberpunk cityscape at midnight",
     "Underwater coral reef paradise",
     "Northern lights over snowy cabin",
     "Tokyo street food night market",
     "Space station window view",
-    "Ancient temple ruins at sunrise"
+    "Ancient temple ruins at sunrise",
   ];
+
+  const generateImage = async (prompt: string): Promise<void> => {
+    setError(null);
+    if (containsInappropriateContent(prompt)) {
+      setError('Content contains disallowed words. Please use appropriate language.');
+      return;
+    }
+    setGenerating(true);
+
+    try {
+      const response = await fetch('/api/generate-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || data.details || 'Failed to enhance prompt');
+      if (!data.success || !data.imageDescription) throw new Error('Failed to generate image');
+
+      let blob: Blob | null = null;
+      let retries = 4;
+      let lastError: Error | null = null;
+
+      while (retries > 0 && !blob) {
+        try {
+          const enhancedPrompt = encodeURIComponent(
+            data.imageDescription + ", masterpiece, best quality, photorealistic, 8K UHD, sharp focus, vivid colors"
+          );
+          const model = retries === 4 || retries === 2 ? 'flux' : 'turbo';
+          const imageUrl = `https://image.pollinations.ai/prompt/${enhancedPrompt}?width=1024&height=1024&nologo=true&model=${model}&seed=${Date.now()}`;
+
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 35000);
+          const imageResponse = await fetch(imageUrl, { signal: controller.signal, cache: 'no-store' });
+          clearTimeout(timeoutId);
+
+          if (!imageResponse.ok) throw new Error(`Image generation failed: ${imageResponse.status}`);
+          const b = await imageResponse.blob();
+          if (b.size === 0) throw new Error('Generated image is empty');
+          blob = b;
+        } catch (err: any) {
+          lastError = err;
+          retries--;
+          if (retries > 0) await new Promise(resolve => setTimeout(resolve, (5 - retries) * 1000));
+        }
+      }
+
+      if (!blob) throw lastError || new Error('Failed to generate image after 4 attempts');
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') setPreviewImage(reader.result);
+      };
+      reader.readAsDataURL(blob);
+      setImageBlob(blob);
+    } catch (error: any) {
+      if (error.name === 'AbortError') setError('Image generation timed out. Please try again.');
+      else if (error.message?.includes('Failed to fetch')) setError('Network error. Please check your connection.');
+      else if (error.message?.includes('530')) setError('Image service is busy. Please wait a moment and try again.');
+      else setError(error.message || 'Failed to generate image. Please try again.');
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const handleSuggestionClick = async (suggestion: string) => {
     setContent(suggestion);
-    setError(null);
-
-    // Check for inappropriate content
-    if (containsInappropriateContent(suggestion)) {
-      setError('⚠️ Cannot generate story: Content contains inappropriate or disallowed words. Please use respectful language.');
-      return;
-    }
-
-    setGenerating(true);
-
-    try {
-      const response = await fetch('/api/generate-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: suggestion })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || data.details || 'Failed to enhance prompt');
-      }
-
-      if (data.success && data.imageDescription) {
-        console.log('Enhanced prompt:', data.imageDescription);
-
-        // Retry logic with multiple image services
-        let imageBlob: Blob | null = null;
-        let retries = 4;
-        let lastError: Error | null = null;
-
-        while (retries > 0 && !imageBlob) {
-          try {
-            const enhancedPrompt = encodeURIComponent(
-              data.imageDescription +
-              ", masterpiece, best quality, photorealistic, 8K UHD, sharp focus, vivid colors"
-            );
-
-            let imageUrl: string;
-
-            // Try different services on different attempts
-            if (retries === 4 || retries === 2) {
-              // Try Pollinations flux model (attempts 1 and 3)
-              imageUrl = `https://image.pollinations.ai/prompt/${enhancedPrompt}?width=1024&height=1024&nologo=true&model=flux&seed=${Date.now()}`;
-              console.log(`Fetching from Pollinations (attempt ${5 - retries}/4)...`);
-            } else {
-              // Try Pollinations turbo model (attempts 2 and 4) - faster fallback
-              imageUrl = `https://image.pollinations.ai/prompt/${enhancedPrompt}?width=1024&height=1024&nologo=true&model=turbo&seed=${Date.now()}`;
-              console.log(`Fetching from Pollinations Turbo (attempt ${5 - retries}/4)...`);
-            }
-
-            // Fetch image with timeout
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 35000); // 35s timeout
-
-            const imageResponse = await fetch(imageUrl, {
-              signal: controller.signal,
-              cache: 'no-store'
-            });
-            clearTimeout(timeoutId);
-
-            if (!imageResponse.ok) {
-              throw new Error(`Image generation failed: ${imageResponse.status}`);
-            }
-
-            const blob = await imageResponse.blob();
-
-            if (blob.size === 0) {
-              throw new Error('Generated image is empty');
-            }
-
-            console.log('✅ Image loaded successfully, size:', blob.size, 'bytes');
-            imageBlob = blob;
-
-          } catch (err: any) {
-            lastError = err;
-            retries--;
-            console.error(`❌ Image generation attempt failed (${4 - retries}/4):`, err.message);
-
-            if (retries > 0) {
-              // Wait before retrying (progressive backoff: 2s, 3s, 4s)
-              const waitTime = (5 - retries) * 1000;
-              console.log(`⏳ Retrying in ${waitTime / 1000}s...`);
-              await new Promise(resolve => setTimeout(resolve, waitTime));
-            }
-          }
-        }
-
-        if (!imageBlob) {
-          throw lastError || new Error('Failed to generate image after 4 attempts');
-        }
-
-        // Convert blob to base64 for storage (suggestion click path)
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          if (typeof reader.result === 'string') {
-            setPreviewImage(reader.result);
-          }
-        };
-        reader.readAsDataURL(imageBlob);
-
-        setImageBlob(imageBlob);
-      } else {
-        throw new Error('Failed to generate image');
-      }
-    } catch (error: any) {
-      console.error('Error generating image:', error);
-      if (error.name === 'AbortError') {
-        setError('Image generation timed out. Please try again in a moment.');
-      } else if (error.message?.includes('530')) {
-        setError('Image service is very busy right now. Please wait 10 seconds and try again.');
-      } else {
-        setError('Failed to generate image. Please try again.');
-      }
-    } finally {
-      setGenerating(false);
-    }
+    await generateImage(suggestion);
   };
 
   const handleGenerateImage = async () => {
-    setError(null);
-
     if (!content.trim() || content.length > 150) {
-      setError('Story must be between 1 and 150 characters');
+      setError('Story must be between 1 and 150 characters.');
       return;
     }
-
-    // Check for inappropriate content
-    if (containsInappropriateContent(content)) {
-      setError('⚠️ Cannot generate image: Content contains inappropriate or disallowed words. Please use respectful language.');
-      setGenerating(false);
-      return;
-    }
-
-    setGenerating(true);
-
-    try {
-      const response = await fetch('/api/generate-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: content })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || data.details || 'Failed to enhance prompt');
-      }
-
-      if (data.success && data.imageDescription) {
-        console.log('Enhanced prompt:', data.imageDescription);
-
-        // Retry logic with multiple image services
-        let imageBlob: Blob | null = null;
-        let retries = 4;
-        let lastError: Error | null = null;
-
-        while (retries > 0 && !imageBlob) {
-          try {
-            const enhancedPrompt = encodeURIComponent(
-              data.imageDescription +
-              ", masterpiece, best quality, photorealistic, 8K UHD, sharp focus, vivid colors"
-            );
-
-            let imageUrl: string;
-
-            // Try different services on different attempts
-            if (retries === 4 || retries === 2) {
-              // Try Pollinations flux model (attempts 1 and 3)
-              imageUrl = `https://image.pollinations.ai/prompt/${enhancedPrompt}?width=1024&height=1024&nologo=true&model=flux&seed=${Date.now()}`;
-              console.log(`Fetching from Pollinations (attempt ${5 - retries}/4)...`);
-            } else {
-              // Try Pollinations turbo model (attempts 2 and 4) - faster fallback
-              imageUrl = `https://image.pollinations.ai/prompt/${enhancedPrompt}?width=1024&height=1024&nologo=true&model=turbo&seed=${Date.now()}`;
-              console.log(`Fetching from Pollinations Turbo (attempt ${5 - retries}/4)...`);
-            }
-
-            // Fetch image with timeout
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 35000); // 35s timeout
-
-            const imageResponse = await fetch(imageUrl, {
-              signal: controller.signal,
-              cache: 'no-store'
-            });
-            clearTimeout(timeoutId);
-
-            if (!imageResponse.ok) {
-              throw new Error(`Image generation failed: ${imageResponse.status}`);
-            }
-
-            const blob = await imageResponse.blob();
-
-            if (blob.size === 0) {
-              throw new Error('Generated image is empty');
-            }
-
-            console.log('✅ Image loaded successfully, size:', blob.size, 'bytes');
-            imageBlob = blob;
-
-          } catch (err: any) {
-            lastError = err;
-            retries--;
-            console.error(`❌ Image generation attempt failed (${4 - retries}/4):`, err.message);
-
-            if (retries > 0) {
-              // Wait before retrying (progressive backoff: 2s, 3s, 4s)
-              const waitTime = (5 - retries) * 1000;
-              console.log(`⏳ Retrying in ${waitTime / 1000}s...`);
-              await new Promise(resolve => setTimeout(resolve, waitTime));
-            }
-          }
-        }
-
-        if (!imageBlob) {
-          throw lastError || new Error('Failed to generate image after 4 attempts');
-        }
-
-        // Convert blob to base64 for storage (main generate path)
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          if (typeof reader.result === 'string') {
-            setPreviewImage(reader.result);
-          }
-        };
-        reader.readAsDataURL(imageBlob);
-
-        setImageBlob(imageBlob);
-      } else {
-        throw new Error('Failed to generate image');
-      }
-    } catch (error: any) {
-      console.error('Error generating image:', error);
-      console.error('Error name:', error.name);
-      console.error('Error message:', error.message);
-      if (error.name === 'AbortError') {
-        setError('Image generation timed out. Please try again in a moment.');
-      } else if (error.message?.includes('Failed to fetch')) {
-        setError('Network error. Please check your internet connection and try again.');
-      } else if (error.message?.includes('530')) {
-        setError('Image service is very busy right now. Please wait 10 seconds and try again.');
-      } else {
-        setError(error.message || 'Failed to generate image. Please try again.');
-      }
-    } finally {
-      setGenerating(false);
-    }
-  };
-
-  const handlePost = async () => {
-    if (!user) {
-      try {
-        await signInWithGoogle();
-      } catch (err) {
-        setError('Please sign in to post your story.');
-      }
-      return;
-    }
-
-    if (!imageBlob) return;
-    await uploadStory(imageBlob);
+    await generateImage(content);
   };
 
   const handleGenerateAgain = () => {
@@ -373,147 +157,187 @@ export default function CreateStory() {
     setImageBlob(null);
     setContent('');
     setError(null);
-    // Clear localStorage when regenerating
     localStorage.removeItem('talehue_draft_image');
     localStorage.removeItem('talehue_draft_content');
   };
 
-  const uploadStory = async (imageBlob: Blob) => {
-    if (!user) {
-      setError('Please sign in to post stories');
-      return;
-    }
-
+  const uploadStory = async (blob: Blob) => {
+    if (!user) { setError('Please sign in to post stories.'); return; }
     setUploading(true);
     setError(null);
 
     try {
-      console.log('Starting upload process...');
-
-      // Convert image blob directly to base64 without compression
       const reader = new FileReader();
-
       const base64Image = await new Promise<string>((resolve, reject) => {
-        reader.onloadend = () => {
-          if (typeof reader.result === 'string') {
-            resolve(reader.result);
-          } else {
-            reject(new Error('Failed to convert image to base64'));
-          }
-        };
+        reader.onloadend = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Failed to convert image'));
         reader.onerror = reject;
-        reader.readAsDataURL(imageBlob);
+        reader.readAsDataURL(blob);
       });
 
-      console.log('Image converted to base64, size:', base64Image.length, 'bytes');
-
-      // Create story document in Firestore with original quality image
       const storyId = `story_${Date.now()}`;
-      const storyData = {
+      await addDoc(collection(db, 'posts'), {
         storyID: storyId,
         userID: user.uid,
-        content: content,
+        content,
         imageURL: base64Image,
         likesCount: 0,
         commentsCount: 0,
-        createdAt: new Date()
-      };
+        createdAt: new Date(),
+      });
 
-      console.log('Creating post document...');
-      await addDoc(collection(db, 'posts'), storyData);
-
-      console.log('Post created successfully!');
-
-      // Clear localStorage and reset form
       localStorage.removeItem('talehue_draft_content');
       localStorage.removeItem('talehue_draft_image');
       setContent('');
       setPreviewImage(null);
       setImageBlob(null);
-
-      // Show success message with beautiful UI
-      setSuccessMessage('Your story was posted successfully!');
+      setSuccessMessage('Story posted successfully!');
       setTimeout(() => setSuccessMessage(null), 3000);
-
     } catch (error: any) {
-      console.error('Error uploading story:', error);
-      console.error('Error code:', error.code);
-      console.error('Error message:', error.message);
-      setError(`Failed to upload story: ${error.message}`);
+      setError(`Failed to post story: ${error.message}`);
     } finally {
       setUploading(false);
     }
   };
 
+  const handlePost = async () => {
+    if (!user) {
+      try { await signInWithGoogle(); } catch { setError('Please sign in to post your story.'); }
+      return;
+    }
+    if (!imageBlob) return;
+    await uploadStory(imageBlob);
+  };
+
+  // Sign-in prompt for unauthenticated users
+  if (!user) {
+    return (
+      <div className="max-w-xl mx-auto px-4 py-10">
+        <div
+          className="rounded-xl p-8 text-center"
+          style={{ border: '1px solid var(--border)', backgroundColor: 'var(--bg-elevated)' }}
+        >
+          <div
+            className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4"
+            style={{ backgroundColor: 'var(--bg-hover)' }}
+          >
+            <Wand2 size={24} style={{ color: 'var(--text-secondary)' }} />
+          </div>
+          <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+            Create a Story
+          </h2>
+          <p className="text-sm mb-6" style={{ color: 'var(--text-secondary)' }}>
+            Sign in to write a story and generate an AI image.
+          </p>
+          <button
+            onClick={async () => {
+              setSigningIn(true);
+              try { await signInWithGoogle(); } catch {}
+              finally { setSigningIn(false); }
+            }}
+            disabled={signingIn}
+            className="w-full flex items-center justify-center gap-2.5 py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-50 transition-colors"
+            style={{ backgroundColor: 'var(--accent)' }}
+          >
+            {signingIn ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : <GoogleIcon />}
+            {signingIn ? 'Signing in…' : 'Sign in with Google'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-3xl mx-auto p-4 md:p-6 relative floating-particles">
+    <div className="max-w-xl mx-auto px-4 py-6">
       {/* Success Toast */}
       {successMessage && (
-        <div className="fixed top-4 md:top-6 right-4 md:right-6 left-4 md:left-auto z-50 animate-slide-in">
-          <div className="glass-heavy rounded-2xl px-4 md:px-6 py-3 md:py-4 border border-green-500/50 shadow-2xl flex items-center gap-2 md:gap-3 neon-glow-strong">
-            <CheckCircle className="text-green-400" size={20} />
-            <CheckCircle className="text-green-400 hidden md:block" size={24} />
-            <p className="text-white font-bold text-sm md:text-base">{successMessage}</p>
+        <div className="fixed top-5 right-5 left-5 md:left-auto md:w-80 z-50 animate-slide-in">
+          <div
+            className="flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg"
+            style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--success)', color: 'var(--success)' }}
+          >
+            <CheckCircle size={18} />
+            <p className="text-sm font-medium">{successMessage}</p>
           </div>
         </div>
       )}
 
-      <div className="glass-gradient rounded-3xl shadow-2xl p-6 md:p-10 border-2 border-purple-400/40 relative overflow-hidden fade-in">
+      {/* Card */}
+      <div
+        className="rounded-xl p-6 fade-in"
+        style={{ border: '1px solid var(--border)', backgroundColor: 'var(--bg-elevated)' }}
+      >
         {/* Header */}
-        <div className="flex items-center gap-3 md:gap-4 mb-6 md:mb-8 relative z-10">
-          <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-gradient-to-br from-purple-500 via-pink-600 to-orange-500 flex items-center justify-center shadow-xl neon-glow-strong pulse-glow">
-            <Sparkles className="text-white" size={24} />
-            <Sparkles className="text-white hidden md:block" size={32} />
-          </div>
-          <div>
-            <h2 className="text-2xl md:text-3xl font-black gradient-text-animated">Create Your Vibe</h2>
-            <p className="text-xs md:text-sm text-purple-200 font-medium">
-              {user ? 'Post your story in 150 chars max 🔥' : 'Think Unique ✨'}
-            </p>
-          </div>
+        <div className="mb-5">
+          <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Create a Story</h2>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+            Write up to 150 characters, then generate an AI image.
+          </p>
         </div>
 
-        {/* Story Input */}
-        <div className="mb-6 relative z-10">
+        {/* Textarea */}
+        <div className="mb-4">
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
             maxLength={150}
-            placeholder="What's your story? Make it lit... 🚀"
-            className="w-full h-32 md:h-40 p-4 md:p-6 glass-heavy rounded-3xl border-2 border-purple-400/40 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 text-white text-base md:text-lg resize-none placeholder-purple-200/50 font-medium backdrop-blur-xl transition-all duration-300"
+            placeholder="Describe your story…"
+            className="input-base resize-none"
+            rows={4}
           />
-          <div className="flex justify-between items-center mt-3">
-            <span className="text-xs md:text-sm text-purple-200 font-bold">
-              {content.length}/150 characters
+          <div className="flex justify-between mt-1.5">
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              {content.length} / 150
             </span>
             {content.length > 0 && (
-              <span className={`text-xs md:text-sm font-black transition-all duration-300 ${content.length > 150 ? 'text-red-400 pulse-glow' : 'text-green-400'}`}>
-                {content.length > 150 ? '❌ Too long bestie' : '✓ Perfect vibe'}
+              <span
+                className="text-xs font-medium"
+                style={{ color: content.length > 150 ? 'var(--danger)' : 'var(--text-muted)' }}
+              >
+                {content.length > 150 ? 'Too long' : 'Good length'}
               </span>
             )}
           </div>
         </div>
 
-        {/* Error Message */}
+        {/* Error */}
         {(error || authError) && (
-          <div className="mb-6 p-5 bg-red-500/10 border-2 border-red-500/40 rounded-2xl backdrop-blur-sm fade-in relative z-10">
-            <p className="text-sm text-red-300 font-bold">
-              {error || authError}
-            </p>
+          <div
+            className="flex items-start gap-2.5 px-4 py-3 mb-4 rounded-lg text-sm"
+            style={{ backgroundColor: 'var(--bg-hover)', border: '1px solid var(--danger)', color: 'var(--danger)' }}
+          >
+            <XCircle size={16} className="mt-0.5 shrink-0" />
+            <p>{error || authError}</p>
           </div>
         )}
 
-        {/* Quick Suggestions */}
+        {/* Suggestions */}
         {!previewImage && (
-          <div className="mb-6 relative z-10">
-            <p className="text-sm text-purple-200 font-bold mb-3">Quick Ideas:</p>
+          <div className="mb-5">
+            <p className="text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+              Quick ideas
+            </p>
             <div className="flex flex-wrap gap-2">
               {suggestions.map((suggestion, index) => (
                 <button
                   key={index}
                   onClick={() => handleSuggestionClick(suggestion)}
                   disabled={generating}
-                  className="px-4 py-2 glass-light border border-purple-400/40 hover:border-purple-400 text-purple-100 hover:text-white text-sm font-medium rounded-full transition-all hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shimmer-hover button-glow"
+                  className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors disabled:opacity-50"
+                  style={{
+                    border: '1px solid var(--border)',
+                    color: 'var(--text-secondary)',
+                    backgroundColor: 'transparent',
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.borderColor = 'var(--text-primary)';
+                    e.currentTarget.style.color = 'var(--text-primary)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.borderColor = 'var(--border)';
+                    e.currentTarget.style.color = 'var(--text-secondary)';
+                  }}
                 >
                   {suggestion}
                 </button>
@@ -522,83 +346,74 @@ export default function CreateStory() {
           </div>
         )}
 
-        {/* Image Preview with Side Buttons */}
+        {/* Image Preview */}
         {previewImage ? (
-          <div className="mb-6 relative z-10 fade-in">
-            <div className="flex flex-col md:flex-row gap-4 items-center md:items-start">
-              {/* Image */}
-              <div className="flex-shrink-0 w-full md:w-auto">
-                <div className="relative rounded-3xl overflow-hidden border-4 border-purple-400 shadow-2xl neon-glow-strong max-w-sm mx-auto md:mx-0 card-lift">
-                  <img
-                    src={previewImage}
-                    alt="Generated story preview"
-                    className="w-full aspect-square object-cover"
-                  />
-                  <div className="absolute top-4 right-4 px-4 py-2 glass-heavy rounded-full">
-                    <p className="text-xs text-white font-bold">AI Generated ✨</p>
-                  </div>
-                </div>
-                <p className="text-xs text-purple-200 text-center mt-3 font-medium gradient-text">
-                  Your masterpiece awaits! 🌟
-                </p>
+          <div className="mb-5 fade-in">
+            <div
+              className="relative rounded-xl overflow-hidden"
+              style={{ border: '1px solid var(--border)' }}
+            >
+              <img src={previewImage} alt="Generated preview" className="w-full aspect-square object-cover" />
+              <div
+                className="absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-medium"
+                style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
+              >
+                AI Generated
               </div>
+            </div>
+            <p className="text-xs text-center mt-2" style={{ color: 'var(--text-muted)' }}>
+              Review your image before posting.
+            </p>
 
-              {/* Buttons on the right */}
-              <div className="flex flex-col gap-4 w-full md:w-auto md:min-w-[200px] justify-center">
-                <button
-                  onClick={handleGenerateAgain}
-                  disabled={uploading}
-                  className="py-5 px-6 glass-heavy border-2 border-white/30 text-white font-black text-lg rounded-full hover:bg-white/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 button-glow shimmer-hover"
-                >
-                  <RefreshCw size={24} />
-                  Remix It
-                </button>
-                <button
-                  onClick={handlePost}
-                  disabled={uploading}
-                  className="py-5 px-6 bg-gradient-to-r from-green-500 via-emerald-500 to-purple-500 text-white font-black text-lg rounded-full hover:shadow-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 neon-glow-strong pulse-glow button-glow"
-                >
-                  {uploading ? (
-                    <>
-                      <Loader2 className="animate-spin" size={24} />
-                      Posting...
-                    </>
-                  ) : (
-                    <>
-                      <Send size={24} />
-                      Post 🔥
-                    </>
-                  )}
-                </button>
-              </div>
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={handleGenerateAgain}
+                disabled={uploading}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
+                style={{ border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--bg-hover)')}
+                onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+              >
+                <RefreshCw size={16} />
+                Start Over
+              </button>
+              <button
+                onClick={handlePost}
+                disabled={uploading}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-50 transition-colors"
+                style={{ backgroundColor: 'var(--accent)' }}
+                onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--accent-hover)')}
+                onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'var(--accent)')}
+              >
+                {uploading ? (
+                  <><Loader2 className="animate-spin" size={16} /> Posting…</>
+                ) : (
+                  <><Send size={16} /> Post Story</>
+                )}
+              </button>
             </div>
           </div>
         ) : (
           <button
             onClick={handleGenerateImage}
             disabled={generating || uploading || !content.trim() || content.length > 150}
-            className="w-full py-6 px-8 bg-gradient-to-r from-purple-500 via-pink-600 to-orange-500 text-white font-black text-xl rounded-full hover:shadow-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-4 neon-glow-strong pulse-glow button-glow shimmer-hover relative z-10"
+            className="w-full flex items-center justify-center gap-2.5 py-3 rounded-lg text-sm font-semibold text-white disabled:opacity-50 transition-colors"
+            style={{ backgroundColor: 'var(--accent)' }}
+            onMouseEnter={e => { if (!e.currentTarget.disabled) e.currentTarget.style.backgroundColor = 'var(--accent-hover)'; }}
+            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'var(--accent)')}
           >
             {generating ? (
-              <>
-                <Loader2 className="animate-spin" size={28} />
-                Cooking up magic...
-              </>
+              <><Loader2 className="animate-spin" size={16} /> Generating image…</>
             ) : (
-              <>
-                <ImageIcon size={28} />
-                Generate My Vibe ✨
-              </>
+              <><ImageIcon size={16} /> Generate Image</>
             )}
           </button>
         )}
 
-        {/* AI Disclaimer */}
-        <div className="mt-6 p-4 glass-light border border-purple-400/30 rounded-2xl backdrop-blur-sm relative z-10">
-          <p className="text-xs text-purple-200/80 text-center font-medium">
-            <span className="font-bold text-purple-300">Note:</span> AI-generated content may not always be perfect. Please review before posting.
-          </p>
-        </div>
+        {/* Disclaimer */}
+        <p className="text-xs text-center mt-4" style={{ color: 'var(--text-muted)' }}>
+          AI-generated images may not always be accurate. Review before posting.
+        </p>
       </div>
     </div>
   );

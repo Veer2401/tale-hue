@@ -2,10 +2,14 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
-import { Camera, Edit2, Save, Heart, MessageCircle, Trash2, X, Check, User, Sparkles, CheckCircle, XCircle, Plus, LogOut } from 'lucide-react';
+import {
+  Camera, Edit2, Save, Heart, MessageCircle, Trash2, X, Check,
+  User, CheckCircle, XCircle, Plus, LogOut, Sun, Moon, Monitor
+} from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, collection, query, where, getDocs, orderBy, deleteDoc } from 'firebase/firestore';
 import { Story } from '@/types';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface ProfileProps {
   onNavigateToCreate?: () => void;
@@ -13,6 +17,7 @@ interface ProfileProps {
 
 export default function Profile({ onNavigateToCreate }: ProfileProps) {
   const { user, profile, updateProfile, signInWithGoogle, signOut } = useAuth();
+  const { theme, setTheme } = useTheme();
   const [editing, setEditing] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
@@ -24,7 +29,7 @@ export default function Profile({ onNavigateToCreate }: ProfileProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
-  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   useEffect(() => {
     if (profile) {
@@ -36,15 +41,9 @@ export default function Profile({ onNavigateToCreate }: ProfileProps) {
 
   const fetchUserStories = async () => {
     if (!user) return;
-    
-    const q = query(
-      collection(db, 'posts'), 
-      where('userID', '==', user.uid),
-      orderBy('createdAt', 'desc')
-    );
+    const q = query(collection(db, 'posts'), where('userID', '==', user.uid), orderBy('createdAt', 'desc'));
     const snapshot = await getDocs(q);
-    const stories = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Story));
-    setUserStories(stories);
+    setUserStories(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Story)));
   };
 
   const handleSaveProfile = async () => {
@@ -53,21 +52,15 @@ export default function Profile({ onNavigateToCreate }: ProfileProps) {
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || !e.target.files[0] || !user) return;
-    
+    if (!e.target.files?.[0] || !user) return;
     setUploading(true);
-    const file = e.target.files[0];
-    
     try {
-      // Convert to base64
       const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve, reject) => {
+      const imageURL = await new Promise<string>((resolve, reject) => {
         reader.onloadend = () => resolve(reader.result as string);
         reader.onerror = reject;
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(e.target.files![0]);
       });
-      
-      const imageURL = await base64Promise;
       await updateProfile({ profileImage: imageURL });
     } catch (error) {
       console.error('Error uploading image:', error);
@@ -83,453 +76,446 @@ export default function Profile({ onNavigateToCreate }: ProfileProps) {
     setShowEditModal(true);
   };
 
+  const showNotification = (type: 'success' | 'error', message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
   const handleSaveStory = async (storyId: string) => {
     if (!editedContent.trim() || editedContent.length > 150) {
-      setNotification({ type: 'error', message: 'Story must be between 1-150 characters' });
-      setTimeout(() => setNotification(null), 3000);
+      showNotification('error', 'Story must be between 1 and 150 characters.');
       return;
     }
-
     try {
       const storyQuery = query(collection(db, 'posts'), where('storyID', '==', storyId));
       const storySnapshot = await getDocs(storyQuery);
-      
       if (!storySnapshot.empty) {
-        const storyDocRef = doc(db, 'posts', storySnapshot.docs[0].id);
-        await updateDoc(storyDocRef, {
-          content: editedContent
-        });
-        
-        // Refresh stories
+        await updateDoc(doc(db, 'posts', storySnapshot.docs[0].id), { content: editedContent });
         await fetchUserStories();
         setEditingStory(null);
         setShowEditModal(false);
         setSelectedStory(null);
-        setNotification({ type: 'success', message: 'Story updated successfully!' });
-        setTimeout(() => setNotification(null), 3000);
+        showNotification('success', 'Story updated.');
       }
-    } catch (error) {
-      console.error('Error updating story:', error);
-      setNotification({ type: 'error', message: 'Failed to update story' });
-      setTimeout(() => setNotification(null), 3000);
+    } catch {
+      showNotification('error', 'Failed to update story.');
     }
   };
 
-  const handleDeleteStory = async (story: Story) => {
+  const handleDeleteStory = (story: Story) => {
     setSelectedStory(story);
     setShowDeleteConfirm(true);
   };
 
   const confirmDelete = async () => {
     if (!selectedStory) return;
-
     try {
-      // Delete the post
       const storyQuery = query(collection(db, 'posts'), where('storyID', '==', selectedStory.storyID));
       const storySnapshot = await getDocs(storyQuery);
-      
-      if (!storySnapshot.empty) {
-        await deleteDoc(doc(db, 'posts', storySnapshot.docs[0].id));
-      }
+      if (!storySnapshot.empty) await deleteDoc(doc(db, 'posts', storySnapshot.docs[0].id));
 
-      // Delete all likes for this story
       const likesQuery = query(collection(db, 'likes'), where('storyID', '==', selectedStory.storyID));
       const likesSnapshot = await getDocs(likesQuery);
-      await Promise.all(likesSnapshot.docs.map(doc => deleteDoc(doc.ref)));
+      await Promise.all(likesSnapshot.docs.map(d => deleteDoc(d.ref)));
 
-      // Delete all comments for this story
       const commentsQuery = query(collection(db, 'comments'), where('storyID', '==', selectedStory.storyID));
       const commentsSnapshot = await getDocs(commentsQuery);
-      await Promise.all(commentsSnapshot.docs.map(doc => deleteDoc(doc.ref)));
+      await Promise.all(commentsSnapshot.docs.map(d => deleteDoc(d.ref)));
 
-      // Refresh stories
       await fetchUserStories();
       setShowDeleteConfirm(false);
       setSelectedStory(null);
-      setNotification({ type: 'success', message: '🗑️ Story deleted successfully!' });
-      setTimeout(() => setNotification(null), 3000);
-    } catch (error) {
-      console.error('Error deleting story:', error);
-      setNotification({ type: 'error', message: 'Failed to delete story' });
-      setTimeout(() => setNotification(null), 3000);
+      showNotification('success', 'Story deleted.');
+    } catch {
+      showNotification('error', 'Failed to delete story.');
     }
   };
 
+  // Unauthenticated state
   if (!user || !profile) {
     return (
-      <div className="max-w-4xl mx-auto p-4 md:p-6">
-        <div className="glass rounded-3xl shadow-2xl overflow-hidden border border-purple-400/30">
-          {/* Gradient Header */}
-          <div className="relative h-32 bg-gradient-to-br from-purple-500 via-pink-600 to-orange-500">
-            <div className="absolute inset-0 bg-black/10"></div>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center text-white">
-                <div className="w-16 h-16 mx-auto mb-2 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center border-4 border-white/30 shadow-xl">
-                  <User size={32} className="text-white" />
-                </div>
-                <h2 className="text-2xl font-black mb-1 neon-text">Your Profile Awaits</h2>
-              </div>
-            </div>
+      <div className="max-w-xl mx-auto px-4 py-10">
+        <div
+          className="rounded-xl p-8 text-center"
+          style={{ border: '1px solid var(--border)', backgroundColor: 'var(--bg-elevated)' }}
+        >
+          <div
+            className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4"
+            style={{ backgroundColor: 'var(--bg-hover)' }}
+          >
+            <User size={24} style={{ color: 'var(--text-secondary)' }} />
           </div>
-
-          {/* Content */}
-          <div className="p-6 md:p-8">
-            <div className="max-w-2xl mx-auto">
-              <h3 className="text-xl font-black text-white mb-4 text-center gradient-text">
-                Unlock Your Creative Space 🚀
-              </h3>
-              
-              {/* Benefits Grid */}
-              <div className="grid md:grid-cols-2 gap-3 mb-6">
-                <div className="p-4 glass rounded-2xl border border-purple-400/30">
-                  <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center mb-3 shadow-lg">
-                    <Sparkles size={20} className="text-white" />
-                  </div>
-                  <h4 className="font-black text-white mb-1 text-sm">Create AI Stories</h4>
-                  <p className="text-xs text-purple-100">
-                    Transform vibes into visual masterpieces
-                  </p>
+          <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+            Your Profile
+          </h2>
+          <p className="text-sm mb-6" style={{ color: 'var(--text-secondary)' }}>
+            Sign in to view your profile, manage your stories, and customise settings.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6 text-left">
+            {[
+              { icon: Heart, title: 'Like & Save', desc: 'Interact with stories you love.' },
+              { icon: MessageCircle, title: 'Comment', desc: 'Connect with the community.' },
+              { icon: Plus, title: 'Create Stories', desc: 'Share your ideas with AI images.' },
+              { icon: Camera, title: 'Custom Profile', desc: 'Personalise your presence.' },
+            ].map(({ icon: Icon, title, desc }) => (
+              <div
+                key={title}
+                className="p-3 rounded-lg"
+                style={{ border: '1px solid var(--border)' }}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Icon size={14} style={{ color: 'var(--accent)' }} />
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</p>
                 </div>
-
-                <div className="p-4 glass rounded-2xl border border-pink-500/30">
-                  <div className="w-10 h-10 rounded-full bg-pink-600 flex items-center justify-center mb-3 shadow-lg">
-                    <Heart size={20} className="text-white" />
-                  </div>
-                  <h4 className="font-black text-white mb-1 text-sm">Build Your Collection</h4>
-                  <p className="text-xs text-purple-100">
-                    Curate your fire content library 🔥
-                  </p>
-                </div>
-
-                <div className="p-4 glass rounded-2xl border border-orange-500/30">
-                  <div className="w-10 h-10 rounded-full bg-orange-600 flex items-center justify-center mb-3 shadow-lg">
-                    <MessageCircle size={20} className="text-white" />
-                  </div>
-                  <h4 className="font-black text-white mb-1 text-sm">Engage & Connect</h4>
-                  <p className="text-xs text-purple-100">
-                    Vibe with the creative community 💬
-                  </p>
-                </div>
-
-                <div className="p-4 glass rounded-2xl border border-indigo-500/30">
-                  <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center mb-3 shadow-lg">
-                    <Camera size={20} className="text-white" />
-                  </div>
-                  <h4 className="font-black text-white mb-1 text-sm">Customize Profile</h4>
-                  <p className="text-xs text-purple-100">
-                    Make it uniquely yours, bestie 😎
-                  </p>
-                </div>
+                <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{desc}</p>
               </div>
-
-              {/* Call to Action */}
-              <div className="text-center">
-                <button
-                  onClick={async () => {
-                    setSigningIn(true);
-                    try {
-                      await signInWithGoogle();
-                    } catch (error) {
-                      console.error('Sign-in error:', error);
-                    } finally {
-                      setSigningIn(false);
-                    }
-                  }}
-                  disabled={signingIn}
-                  className="px-8 py-4 bg-gradient-to-r from-purple-500 via-pink-600 to-orange-500 text-white font-black rounded-full hover:shadow-2xl transform hover:scale-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none inline-flex items-center gap-3 neon-glow"
-                >
-                  {signingIn ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                      Signing in...
-                    </>
-                  ) : (
-                    <>
-                      <User size={20} />
-                      Sign In & Start Creating 🚀
-                    </>
-                  )}
-                </button>
-                <p className="text-xs text-purple-300/70 mt-3 font-medium">
-                  Join the creative gang today! 🌟
-                </p>
-              </div>
-            </div>
+            ))}
           </div>
+          <button
+            onClick={async () => {
+              setSigningIn(true);
+              try { await signInWithGoogle(); } catch {}
+              finally { setSigningIn(false); }
+            }}
+            disabled={signingIn}
+            className="w-full py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-50 transition-colors"
+            style={{ backgroundColor: 'var(--accent)' }}
+          >
+            {signingIn ? 'Signing in…' : 'Sign in with Google'}
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-5xl mx-auto p-4 md:p-6">
+    <div className="max-w-3xl mx-auto px-4 py-6">
       {/* Notification Toast */}
       {notification && (
-        <div className="fixed top-4 md:top-6 right-4 md:right-6 left-4 md:left-auto z-50 animate-slide-in">
-          <div className={`glass rounded-2xl px-4 md:px-6 py-3 md:py-4 border shadow-2xl flex items-center gap-2 md:gap-3 neon-glow ${
-            notification.type === 'success' 
-              ? 'border-green-500/50' 
-              : 'border-red-500/50'
-          }`}>
-            {notification.type === 'success' ? (
-              <CheckCircle className="text-green-400" size={20} />
-            ) : (
-              <XCircle className="text-red-400" size={20} />
-            )}
-            <p className="text-white font-bold text-sm md:text-base">{notification.message}</p>
+        <div className="fixed top-5 right-5 left-5 md:left-auto md:w-80 z-50 animate-slide-in">
+          <div
+            className="flex items-center gap-2.5 px-4 py-3 rounded-lg shadow-lg"
+            style={{
+              backgroundColor: 'var(--bg-elevated)',
+              border: `1px solid ${notification.type === 'success' ? 'var(--success)' : 'var(--danger)'}`,
+              color: notification.type === 'success' ? 'var(--success)' : 'var(--danger)',
+            }}
+          >
+            {notification.type === 'success'
+              ? <CheckCircle size={16} />
+              : <XCircle size={16} />}
+            <p className="text-sm font-medium">{notification.message}</p>
           </div>
         </div>
       )}
 
-      <div className="glass rounded-3xl shadow-2xl p-4 md:p-8 border border-purple-400/30">
-        {/* Profile Header */}
-        <div className="flex flex-col items-center gap-4 mb-6 md:mb-8">
-          {/* Profile Image */}
+      {/* Profile Card */}
+      <div
+        className="rounded-xl p-6 mb-4"
+        style={{ border: '1px solid var(--border)', backgroundColor: 'var(--bg-elevated)' }}
+      >
+        {/* Avatar */}
+        <div className="flex flex-col items-center gap-4">
           <div className="relative">
-            <div className="w-28 h-28 md:w-32 md:h-32 rounded-full bg-gradient-to-br from-purple-500 via-pink-600 to-orange-500 flex items-center justify-center text-white text-4xl md:text-5xl font-black overflow-hidden shadow-2xl neon-glow ring-4 ring-white/20">
+            <div
+              className="w-24 h-24 rounded-full flex items-center justify-center text-white text-3xl font-bold overflow-hidden"
+              style={{ backgroundColor: '#737373' }}
+            >
               {profile.profileImage ? (
                 <img src={profile.profileImage} alt={profile.displayName} className="w-full h-full object-cover" />
               ) : (
                 profile.displayName.charAt(0).toUpperCase()
               )}
             </div>
-            <label className="absolute bottom-0 right-0 w-10 h-10 md:w-11 md:h-11 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center cursor-pointer hover:scale-110 transition-all shadow-lg active:scale-95">
-              <Camera size={20} className="text-white" />
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-                disabled={uploading}
-              />
+            <label
+              className="absolute bottom-0 right-0 w-8 h-8 rounded-full flex items-center justify-center cursor-pointer transition-colors"
+              style={{ backgroundColor: 'var(--bg-elevated)', border: '2px solid var(--border)' }}
+              onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--bg-hover)')}
+              onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'var(--bg-elevated)')}
+            >
+              <Camera size={14} style={{ color: 'var(--text-secondary)' }} />
+              <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" disabled={uploading} />
             </label>
           </div>
 
-          {/* Profile Info */}
-          <div className="flex-1 w-full text-center">
+          {/* Name / Bio */}
+          <div className="w-full text-center">
             {editing ? (
-              <div className="space-y-3 max-w-md mx-auto">
+              <div className="space-y-2 max-w-sm mx-auto">
                 <input
                   type="text"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  className="w-full px-4 py-3 glass rounded-2xl border-2 border-purple-400/30 text-white font-bold text-lg placeholder-purple-200/50 text-center"
+                  className="input-base text-center font-semibold"
                   placeholder="Display Name"
                 />
                 <textarea
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
-                  className="w-full px-4 py-3 glass rounded-2xl border-2 border-purple-400/30 text-white font-medium placeholder-purple-200/50 resize-none text-base"
-                  placeholder="Bio - Tell your story..."
+                  className="input-base resize-none"
+                  placeholder="Bio"
                   rows={3}
                 />
               </div>
             ) : (
-              <div className="max-w-md mx-auto">
-                <h2 className="text-3xl md:text-4xl font-black text-white neon-text mb-2">
+              <div>
+                <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
                   {profile.displayName}
                 </h2>
-                <p className="text-purple-100 text-base md:text-lg font-medium px-4">{profile.bio || 'No bio yet - add your vibe!'}</p>
+                <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+                  {profile.bio || 'No bio yet.'}
+                </p>
               </div>
             )}
 
             {/* Stats */}
-            <div className="flex gap-6 md:gap-10 mt-5 justify-center">
-              <div className="text-center">
-                <div className="font-black text-white text-2xl md:text-3xl gradient-text">{userStories.length}</div>
-                <div className="text-purple-200 text-sm md:text-base font-bold">Stories</div>
-              </div>
-              <div className="text-center">
-                <div className="font-black text-white text-2xl md:text-3xl gradient-text">{profile.followers.length}</div>
-                <div className="text-purple-200 text-sm md:text-base font-bold">Followers</div>
-              </div>
-              <div className="text-center">
-                <div className="font-black text-white text-2xl md:text-3xl gradient-text">{profile.following.length}</div>
-                <div className="text-purple-200 text-sm md:text-base font-bold">Following</div>
-              </div>
+            <div className="flex justify-center gap-8 mt-4">
+              {[
+                { label: 'Stories', count: userStories.length },
+                { label: 'Followers', count: profile.followers.length },
+                { label: 'Following', count: profile.following.length },
+              ].map(({ label, count }) => (
+                <div key={label} className="text-center">
+                  <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{count}</p>
+                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{label}</p>
+                </div>
+              ))}
             </div>
 
             {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3 mt-6 justify-center items-center max-w-md mx-auto">
+            <div className="flex justify-center gap-2 mt-4">
               <button
                 onClick={editing ? handleSaveProfile : () => setEditing(true)}
-                className="w-full sm:flex-1 px-6 py-3 bg-gradient-to-r from-purple-500 via-pink-600 to-orange-500 text-white font-black text-base rounded-full hover:shadow-2xl transform hover:scale-105 transition-all flex items-center justify-center gap-2 neon-glow active:scale-95"
+                className="flex items-center gap-1.5 px-5 py-2 rounded-lg text-sm font-semibold text-white transition-colors"
+                style={{ backgroundColor: 'var(--accent)' }}
+                onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--accent-hover)')}
+                onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'var(--accent)')}
               >
-                {editing ? (
-                  <>
-                    <Save size={20} /> Save Changes
-                  </>
-                ) : (
-                  <>
-                    <Edit2 size={20} /> Edit Profile
-                  </>
-                )}
+                {editing ? <><Save size={14} /> Save</> : <><Edit2 size={14} /> Edit Profile</>}
               </button>
-              
+              {editing && (
+                <button
+                  onClick={() => setEditing(false)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                  style={{ border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--bg-hover)')}
+                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+                >
+                  <X size={14} /> Cancel
+                </button>
+              )}
               <button
                 onClick={signOut}
-                className="w-full sm:w-auto px-6 py-3 glass border-2 border-red-400/30 hover:border-red-400 text-red-400 hover:text-white hover:bg-red-500/20 font-black text-base rounded-full transform hover:scale-105 transition-all flex items-center justify-center gap-2 active:scale-95"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                style={{ border: '1px solid var(--border)', color: 'var(--danger)' }}
+                onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--bg-hover)')}
+                onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
               >
-                <LogOut size={20} /> Sign Out
+                <LogOut size={14} /> Sign Out
               </button>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* User Stories Grid */}
-        <div className="border-t border-white/10 pt-6 md:pt-8 mt-6 md:mt-8">
-          <h3 className="text-2xl md:text-3xl font-black text-white mb-5 md:mb-6 neon-text text-center md:text-left">Your Stories</h3>
-          {userStories.length === 0 ? (
-            <div className="text-center py-10 md:py-12">
-              <div className="w-20 h-20 md:w-24 md:h-24 mx-auto mb-5 md:mb-6 rounded-full bg-gradient-to-br from-purple-500 via-pink-600 to-orange-500 flex items-center justify-center shadow-2xl neon-glow">
-                <Sparkles className="text-white" size={40} />
-              </div>
-              <p className="text-zinc-400 text-lg md:text-xl mb-6 font-medium px-4">No stories yet. Create your first one!</p>
-              <button
-                onClick={onNavigateToCreate}
-                className="px-7 md:px-8 py-3.5 md:py-4 bg-gradient-to-r from-purple-500 via-pink-600 to-orange-500 text-white font-black text-lg rounded-full hover:shadow-2xl transform hover:scale-105 transition-all flex items-center justify-center gap-2 mx-auto neon-glow active:scale-95"
-              >
-                <Plus size={24} />
-                Create Your First Story
-              </button>
+      {/* Stories Grid */}
+      <div
+        className="rounded-xl p-6 mb-4"
+        style={{ border: '1px solid var(--border)', backgroundColor: 'var(--bg-elevated)' }}
+      >
+        <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+          Your Stories
+        </h3>
+
+        {userStories.length === 0 ? (
+          <div className="text-center py-10">
+            <div
+              className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3"
+              style={{ backgroundColor: 'var(--bg-hover)' }}
+            >
+              <Plus size={20} style={{ color: 'var(--text-muted)' }} />
             </div>
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
-              {userStories.map((story) => (
-                <div 
-                  key={story.storyID} 
-                  className="aspect-square rounded-xl md:rounded-2xl overflow-hidden relative group shadow-lg"
-                >
-                  {story.imageURL ? (
-                    <>
-                      <img src={story.imageURL} alt={story.content} className="w-full h-full object-cover" />
-                      
-                      {/* Mobile: Always visible action buttons at top-right */}
-                      <div className="absolute top-2 right-2 flex gap-1.5 md:hidden z-10">
+            <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
+              No stories yet.
+            </p>
+            <button
+              onClick={onNavigateToCreate}
+              className="px-5 py-2 rounded-lg text-sm font-semibold text-white transition-colors"
+              style={{ backgroundColor: 'var(--accent)' }}
+              onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--accent-hover)')}
+              onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'var(--accent)')}
+            >
+              Create Your First Story
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {userStories.map((story) => (
+              <div
+                key={story.storyID}
+                className="aspect-square rounded-lg overflow-hidden relative group"
+                style={{ border: '1px solid var(--border)' }}
+              >
+                {story.imageURL ? (
+                  <>
+                    <img src={story.imageURL} alt={story.content} className="w-full h-full object-cover" />
+
+                    {/* Mobile action buttons */}
+                    <div className="absolute top-2 right-2 flex gap-1 md:hidden z-10">
+                      <button
+                        onClick={() => handleEditStory(story)}
+                        className="p-1.5 rounded-lg text-white"
+                        style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteStory(story)}
+                        className="p-1.5 rounded-lg text-white"
+                        style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+
+                    {/* Mobile stats */}
+                    <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-4 py-2 md:hidden"
+                      style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}>
+                      <div className="flex items-center gap-1 text-white">
+                        <Heart size={12} fill="white" />
+                        <span className="text-xs font-medium">{story.likesCount || 0}</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-white">
+                        <MessageCircle size={12} fill="white" />
+                        <span className="text-xs font-medium">{story.commentsCount || 0}</span>
+                      </div>
+                    </div>
+
+                    {/* Desktop hover overlay */}
+                    <div className="hidden md:flex absolute inset-0 flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                      style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
+                      <p className="text-white text-xs text-center line-clamp-2 px-2 mb-1">{story.content}</p>
+                      <div className="flex items-center gap-4 text-white mb-2">
+                        <div className="flex items-center gap-1">
+                          <Heart size={14} fill="white" /><span className="text-xs">{story.likesCount || 0}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <MessageCircle size={14} fill="white" /><span className="text-xs">{story.commentsCount || 0}</span>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
                         <button
                           onClick={() => handleEditStory(story)}
-                          className="p-2 bg-orange-500/95 backdrop-blur-sm hover:bg-orange-600 rounded-xl shadow-lg transition-all active:scale-90"
-                          title="Edit"
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-white"
+                          style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
                         >
-                          <Edit2 size={16} className="text-white" />
+                          <Edit2 size={12} /> Edit
                         </button>
                         <button
                           onClick={() => handleDeleteStory(story)}
-                          className="p-2 bg-red-500/95 backdrop-blur-sm hover:bg-red-600 rounded-xl shadow-lg transition-all active:scale-90"
-                          title="Delete"
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium"
+                          style={{ backgroundColor: 'var(--danger)', color: '#fff' }}
                         >
-                          <Trash2 size={16} className="text-white" />
+                          <Trash2 size={12} /> Delete
                         </button>
                       </div>
-
-                      {/* Mobile: Stats badge at bottom */}
-                      <div className="absolute bottom-2 left-2 right-2 flex items-center justify-center gap-4 bg-black/70 backdrop-blur-md rounded-xl py-2 px-3 md:hidden">
-                        <div className="flex items-center gap-1.5">
-                          <Heart size={14} fill="white" className="text-white" />
-                          <span className="font-bold text-sm text-white">{story.likesCount || 0}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <MessageCircle size={14} fill="white" className="text-white" />
-                          <span className="font-bold text-sm text-white">{story.commentsCount || 0}</span>
-                        </div>
-                      </div>
-
-                      {/* Desktop: Hover overlay with stats and actions */}
-                      <div className="hidden md:flex absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex-col items-center justify-center gap-3 text-white p-4">
-                        {editingStory === story.storyID ? (
-                          <div className="w-full flex flex-col gap-2">
-                            <textarea
-                              value={editedContent}
-                              onChange={(e) => setEditedContent(e.target.value)}
-                              maxLength={150}
-                              className="w-full px-3 py-2 bg-zinc-800 text-white rounded-lg text-sm resize-none"
-                              rows={3}
-                              autoFocus
-                            />
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleSaveStory(story.storyID)}
-                                className="flex-1 px-3 py-2 bg-green-500 hover:bg-green-600 rounded-lg text-sm font-semibold flex items-center justify-center gap-1"
-                              >
-                                <Check size={16} /> Save
-                              </button>
-                              <button
-                                onClick={() => setEditingStory(null)}
-                                className="flex-1 px-3 py-2 bg-zinc-600 hover:bg-zinc-700 rounded-lg text-sm font-semibold flex items-center justify-center gap-1"
-                              >
-                                <X size={16} /> Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <p className="text-sm text-center line-clamp-2 mb-2 px-1">{story.content}</p>
-                            <div className="flex items-center gap-4 mb-2">
-                              <div className="flex items-center gap-1">
-                                <Heart size={18} fill="white" />
-                                <span className="font-semibold text-sm">{story.likesCount || 0}</span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <MessageCircle size={18} fill="white" />
-                                <span className="font-semibold text-sm">{story.commentsCount || 0}</span>
-                              </div>
-                            </div>
-                            <div className="flex gap-2 flex-wrap justify-center">
-                              <button
-                                onClick={() => handleEditStory(story)}
-                                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 rounded-lg text-sm font-semibold flex items-center gap-1"
-                              >
-                                <Edit2 size={14} /> Edit
-                              </button>
-                              <button
-                                onClick={() => handleDeleteStory(story)}
-                                className="px-4 py-2 bg-red-500 hover:bg-red-600 rounded-lg text-sm font-semibold flex items-center gap-1"
-                              >
-                                <Trash2 size={14} /> Delete
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </>
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-purple-400 via-pink-500 to-orange-500 flex items-center justify-center text-white p-2 md:p-4 text-xs md:text-sm">
-                      {story.content}
                     </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+                  </>
+                ) : (
+                  <div
+                    className="w-full h-full flex items-center justify-center p-3"
+                    style={{ backgroundColor: 'var(--bg-secondary)' }}
+                  >
+                    <p className="text-xs text-center" style={{ color: 'var(--text-secondary)' }}>
+                      {story.content}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Settings — Theme */}
+      <div
+        className="rounded-xl p-6"
+        style={{ border: '1px solid var(--border)', backgroundColor: 'var(--bg-elevated)' }}
+      >
+        <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+          Settings
+        </h3>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Theme</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+              Choose your preferred appearance.
+            </p>
+          </div>
+          <div className="flex gap-1 p-1 rounded-lg" style={{ border: '1px solid var(--border)', backgroundColor: 'var(--bg-secondary)' }}>
+            {([
+              { value: 'light', icon: Sun, label: 'Light' },
+              { value: 'dark', icon: Moon, label: 'Dark' },
+              { value: 'system', icon: Monitor, label: 'System' },
+            ] as const).map(({ value, icon: Icon, label }) => (
+              <button
+                key={value}
+                onClick={() => setTheme(value)}
+                title={label}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all"
+                style={theme === value ? {
+                  backgroundColor: 'var(--accent)',
+                  color: '#ffffff',
+                } : {
+                  backgroundColor: 'transparent',
+                  color: 'var(--text-secondary)',
+                }}
+              >
+                <Icon size={13} />
+                <span className="hidden sm:inline">{label}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && selectedStory && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <div className="glass rounded-3xl max-w-md w-full p-6 border border-red-400/30 shadow-2xl animate-in zoom-in-95 duration-200">
-            <h3 className="text-xl md:text-2xl font-bold text-white mb-3 neon-text">
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 p-4"
+          style={{ backgroundColor: 'var(--modal-overlay)' }}
+        >
+          <div
+            className="rounded-xl max-w-sm w-full p-6 zoom-in"
+            style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
+          >
+            <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
               Delete Story?
             </h3>
-            <p className="text-zinc-300 text-sm md:text-base mb-4">
-              Are you sure you want to delete this story? This will also delete all likes and comments. This action cannot be undone.
+            <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
+              This will permanently delete the story along with all its likes and comments.
             </p>
-            <div className="glass rounded-2xl p-3 md:p-4 mb-6 border border-white/10">
-              <p className="text-sm md:text-base text-white italic">"{selectedStory.content}"</p>
+            <div
+              className="rounded-lg p-3 mb-5 text-sm italic"
+              style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
+            >
+              "{selectedStory.content}"
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <button
                 onClick={confirmDelete}
-                className="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold transition-all transform active:scale-95"
+                className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors"
+                style={{ backgroundColor: 'var(--danger)' }}
               >
                 Delete
               </button>
               <button
-                onClick={() => {
-                  setShowDeleteConfirm(false);
-                  setSelectedStory(null);
-                }}
-                className="flex-1 px-4 py-3 glass border border-white/20 hover:bg-white/10 text-white rounded-xl font-semibold transition-all transform active:scale-95"
+                onClick={() => { setShowDeleteConfirm(false); setSelectedStory(null); }}
+                className="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors"
+                style={{ border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--bg-hover)')}
+                onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
               >
                 Cancel
               </button>
@@ -538,77 +524,71 @@ export default function Profile({ onNavigateToCreate }: ProfileProps) {
         </div>
       )}
 
-      {/* Edit Story Modal - Mobile Friendly */}
+      {/* Edit Story Modal */}
       {showEditModal && selectedStory && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <div className="glass rounded-3xl max-w-md w-full p-6 border border-purple-400/30 shadow-2xl animate-in zoom-in-95 duration-200">
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 p-4"
+          style={{ backgroundColor: 'var(--modal-overlay)' }}
+        >
+          <div
+            className="rounded-xl max-w-sm w-full p-6 zoom-in"
+            style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
+          >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl md:text-2xl font-bold text-white neon-text">
-                Edit Your Story
+              <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
+                Edit Story
               </h3>
               <button
-                onClick={() => {
-                  setShowEditModal(false);
-                  setEditingStory(null);
-                  setSelectedStory(null);
-                }}
-                className="p-2 glass hover:bg-white/10 rounded-full transition-all"
+                onClick={() => { setShowEditModal(false); setEditingStory(null); setSelectedStory(null); }}
+                className="p-1 rounded transition-colors"
+                style={{ color: 'var(--text-muted)' }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-primary)')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
               >
-                <X size={20} className="text-white" />
+                <X size={18} />
               </button>
             </div>
-            
-            {/* Story Image Preview */}
+
             {selectedStory.imageURL && (
-              <div className="mb-4 rounded-2xl overflow-hidden border-2 border-purple-400/30">
-                <img 
-                  src={selectedStory.imageURL} 
-                  alt={selectedStory.content}
-                  className="w-full aspect-square object-cover"
-                />
+              <div className="mb-4 rounded-lg overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+                <img src={selectedStory.imageURL} alt={selectedStory.content} className="w-full aspect-square object-cover" />
               </div>
             )}
 
-            {/* Edit Form */}
             <div className="mb-4">
               <textarea
                 value={editedContent}
                 onChange={(e) => setEditedContent(e.target.value)}
                 maxLength={150}
-                className="w-full px-4 py-3 glass rounded-2xl border-2 border-purple-400/30 focus:border-purple-400 focus:outline-none text-white text-base resize-none placeholder-purple-200/50 font-medium"
+                className="input-base resize-none"
                 rows={4}
-                placeholder="Edit your story..."
+                placeholder="Edit your story…"
                 autoFocus
               />
-              <div className="flex justify-between items-center mt-2">
-                <span className="text-xs text-purple-200 font-bold">
-                  {editedContent.length}/150 characters
-                </span>
-                <span className={`text-xs font-black ${editedContent.length > 150 ? 'text-red-400' : 'text-green-400'}`}>
-                  {editedContent.length > 150 ? '❌ Too long' : '✓ Perfect'}
+              <div className="flex justify-between mt-1.5">
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{editedContent.length}/150</span>
+                <span className="text-xs" style={{ color: editedContent.length > 150 ? 'var(--danger)' : 'var(--text-muted)' }}>
+                  {editedContent.length > 150 ? 'Too long' : ''}
                 </span>
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <button
                 onClick={() => handleSaveStory(selectedStory.storyID)}
                 disabled={!editedContent.trim() || editedContent.length > 150}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-green-500 via-emerald-500 to-green-600 text-white rounded-xl font-semibold transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 neon-glow"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-50 transition-colors"
+                style={{ backgroundColor: 'var(--accent)' }}
               >
-                <Check size={18} />
-                Save Changes
+                <Check size={14} /> Save Changes
               </button>
               <button
-                onClick={() => {
-                  setShowEditModal(false);
-                  setEditingStory(null);
-                  setSelectedStory(null);
-                }}
-                className="flex-1 px-4 py-3 glass border border-white/20 hover:bg-white/10 text-white rounded-xl font-semibold transition-all transform active:scale-95 flex items-center justify-center gap-2"
+                onClick={() => { setShowEditModal(false); setEditingStory(null); setSelectedStory(null); }}
+                className="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors"
+                style={{ border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--bg-hover)')}
+                onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
               >
-                <X size={18} />
                 Cancel
               </button>
             </div>

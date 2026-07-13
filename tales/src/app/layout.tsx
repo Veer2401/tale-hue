@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -9,9 +10,14 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Tale Hue - Stories in Color",
-  description: "A modern social platform for creating and sharing short stories with AI-generated images",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
+  title: "TaleHue — Stories in Color",
+  description: "A minimal social platform for creating and sharing short stories with AI-generated images.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 export default function RootLayout({
@@ -21,10 +27,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} antialiased bg-zinc-50 dark:bg-black`}>
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+      <body className={`${inter.variable} antialiased`}>
+        <ThemeProvider>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
