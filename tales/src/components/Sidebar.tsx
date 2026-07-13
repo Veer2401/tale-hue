@@ -42,12 +42,42 @@ export default function Sidebar({ onNavigate, currentView }: SidebarProps) {
     >
       {/* Logo */}
       <div className="p-6" style={{ borderBottom: '1px solid var(--border)' }}>
-        <span
-          className="text-2xl font-black tracking-tight"
-          style={{ color: 'var(--text-primary)' }}
-        >
-          TaleHue
-        </span>
+        <div className="relative group cursor-pointer">
+          {/* Outer glow rings */}
+          <div className="absolute -inset-2 bg-gradient-to-r from-purple-500 via-pink-600 to-orange-500 rounded-3xl blur-2xl opacity-40 animate-pulse"></div>
+          <div className="absolute -inset-1 bg-gradient-to-r from-violet-600 via-pink-600 to-rose-500 rounded-2xl blur-xl opacity-25"></div>
+
+          {/* Main logo container */}
+          <div className="relative bg-gradient-to-br from-black via-zinc-950 to-black rounded-2xl p-6 border-2 border-zinc-800/50 group-hover:border-purple-400/60 transition-all duration-700 group-hover:scale-110 transform shadow-2xl group-hover:shadow-purple-900/50">
+            {/* Inner hover overlay */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-purple-950/20 via-transparent to-pink-950/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+
+            {/* Sparkle elements */}
+            <div className="absolute top-3 right-3 w-2 h-2 bg-purple-300 rounded-full opacity-0 group-hover:opacity-100 animate-ping shadow-lg shadow-purple-400"></div>
+            <div className="absolute bottom-3 left-3 w-1.5 h-1.5 bg-pink-400 rounded-full opacity-0 group-hover:opacity-100 animate-ping shadow-lg shadow-pink-500" style={{ animationDelay: '75ms' }}></div>
+            <div className="absolute top-1/2 left-2 w-1 h-1 bg-orange-400 rounded-full opacity-0 group-hover:opacity-100 animate-ping shadow-lg shadow-orange-500" style={{ animationDelay: '150ms' }}></div>
+
+            {/* Logo text */}
+            <h1 className="relative text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-200 via-pink-300 to-orange-300 tracking-tighter text-center group-hover:from-purple-100 group-hover:via-pink-200 group-hover:to-orange-200 transition-all duration-700">
+              TaleHue
+            </h1>
+
+            {/* Animated underlines */}
+            <div className="mt-3 space-y-1">
+              <div className="h-1 bg-gradient-to-r from-purple-400 via-pink-500 to-orange-500 rounded-full opacity-70 group-hover:opacity-100 transition-all duration-700 shadow-lg shadow-purple-400/50"></div>
+              <div className="h-0.5 bg-gradient-to-r from-violet-400 via-pink-400 to-rose-400 rounded-full opacity-0 group-hover:opacity-60 transition-all duration-700" style={{ transitionDelay: '100ms' }}></div>
+            </div>
+
+            {/* Shimmer */}
+            <div className="absolute inset-0 rounded-2xl overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out"></div>
+            </div>
+
+            {/* Corner accents */}
+            <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-purple-400/50 rounded-tl-2xl"></div>
+            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-pink-500/50 rounded-br-2xl"></div>
+          </div>
+        </div>
       </div>
 
       {/* Navigation */}

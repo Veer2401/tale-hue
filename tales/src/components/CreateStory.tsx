@@ -281,6 +281,14 @@ export default function CreateStory() {
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (!generating && !uploading && content.trim() && content.length <= 150 && !previewImage) {
+                  handleGenerateImage();
+                }
+              }
+            }}
             maxLength={150}
             placeholder="Describe your story…"
             className="input-base resize-none"
